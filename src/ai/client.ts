@@ -3,6 +3,7 @@ import { OPENROUTER_URL, PROMPT } from './options';
 
 export async function generateReply(userId: number, userMessage: string): Promise<string> {
   pushToContext(userId, 'user', userMessage);
+  console.log('userMessage', userMessage);
 
   const messages = getUserContext(userId);
 
@@ -34,6 +35,9 @@ export async function generateReply(userId: number, userMessage: string): Promis
   const data = await response.json();
   const answer = data.choices?.[0]?.message?.content ?? '';
   pushToContext(userId, 'assistant', answer);
+
+  console.log('userMessage', userMessage);
+  console.log('answer', answer);
 
   return answer;
 }
