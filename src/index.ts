@@ -1,9 +1,7 @@
-import 'dotenv/config';
-import { createBot } from './bot';
+import { bot } from './botInstance';
+import { setupDailyNewsCron } from './cron/dailyNews';
 import http from 'http';
 
-const bot = createBot();
-
-bot.start().then(() => console.log('bot start'));
-
+setupDailyNewsCron();
+bot.start().then(() => console.log('Bot started'));
 http.createServer(() => {}).listen(process.env.PORT || 3000);
