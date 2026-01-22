@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "dotenv": "^17.2.3",
+    "express": "^5.2.1",
     "grammy": "^1.39.3",
     "openai": "^6.16.0",
     "tsx": "^4.21.0"
