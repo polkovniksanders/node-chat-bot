@@ -55,6 +55,9 @@ export async function generateReply(userId: number, userMessage: string): Promis
       ?.reasoning_details;
     pushToContext(userId, 'assistant', answer, reasoningDetails);
 
+    console.log('userMessage', userMessage);
+    console.log('answer', answer);
+
     return answer;
   } catch (err) {
     console.error('OpenRouter SDK error:', err);
