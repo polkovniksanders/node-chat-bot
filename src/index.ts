@@ -1,37 +1,27 @@
-import express from 'express';
+import 'dotenv/config';
 import { bot } from './botInstance';
-import { webhookCallback } from 'grammy';
 import { setupHandlers } from './bot/handlers';
+import express from 'express';
+import { webhookCallback } from 'grammy';
 
-const app = express();
+const isLocal = process.env.NODE_ENV !== 'production';
 
-// Telegram шлёт JSON → Express должен уметь его читать
-app.use(express.json());
-
-// Настраиваем обработчики бота
 setupHandlers(bot);
 
-// Путь webhook — можешь изменить, если хочешь
-const WEBHOOK_PATH = '/webhook';
+if (isLocal) {
+  // 🔥 Локальный режим — polling
+  bot.start().then(() => console.log('🤖 Bot started in POLLING mode (local)'));
+} else {
+  // 🔥 Продакшен — webhook
+  const app = express();
+  app.use(express.json());
 
-// Обработчик Telegram‑обновлений
-app.post(WEBHOOK_PATH, webhookCallback(bot, 'express'));
+  app.post('/webhook', webhookCallback(bot, 'express'));
 
-// Health‑endpoint для Timeweb
-app.get('/health', (_, res) => {
-  res.status(200).send('OK');
-});
+  app.get('/health', (_, res) => res.send('OK'));
 
-// Корневой endpoint
-app.get('/', (_, res) => {
-  res.send('Telegram AI Bot is running via webhook');
-});
-
-// Порт и адрес для Timeweb Cloud
-
-const PORT = Number(process.env.PORT) || 3000;
-
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server started on port ${PORT}`);
-  console.log(`📨 Webhook endpoint: https://<your-domain>${WEBHOOK_PATH}`);
-});
+  const PORT = Number(process.env.PORT) || 80;
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🌐 Webhook server running on port ${PORT}`);
+  });
+}
