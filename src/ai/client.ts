@@ -1,5 +1,5 @@
-import { getUserContext, pushToContext } from '../context/memory';
-import { PROMPT } from './options';
+import { getUserContext, pushToContext } from '../context/memory.js';
+import { PROMPT } from './options.js';
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 

@@ -1,6 +1,6 @@
 import cron from 'node-cron';
-import { bot } from '../botInstance';
-import { getNewsDigestEmoji } from '../news/news';
+import { bot } from '../botInstance.js';
+import { getNewsDigestEmoji } from '../news/news.js';
 
 export function setupDailyNewsCron() {
   cron.schedule('0 * * * *', async () => {
