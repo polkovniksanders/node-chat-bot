@@ -1,4 +1,5 @@
 import cron from 'node-cron';
+
 import { getNewsDigestEmoji } from './news/news.js';
 import { bot } from './botInstance.js';
 
