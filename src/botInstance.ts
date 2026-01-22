@@ -1,3 +1,3 @@
-import { createBot } from './bot';
+import { Bot } from 'grammy';
 
-export const bot = createBot();
+export const bot = new Bot(process.env.TELEGRAM_TOKEN!);
