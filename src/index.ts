@@ -3,10 +3,12 @@ import { bot } from './botInstance';
 import { setupHandlers } from './bot/handlers';
 import express from 'express';
 import { webhookCallback } from 'grammy';
+import { setupDailyNewsCron } from './cron/dailyNews';
 
 const isLocal = process.env.NODE_ENV !== 'production';
 
 setupHandlers(bot);
+setupDailyNewsCron();
 
 if (isLocal) {
   // 🔥 Локальный режим — polling
