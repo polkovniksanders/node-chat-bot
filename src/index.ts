@@ -1,3 +1,5 @@
+import 'dotenv/config';
+
 import { bot } from './botInstance';
 import { setupDailyNewsCron } from './cron/dailyNews';
 import http from 'http';
