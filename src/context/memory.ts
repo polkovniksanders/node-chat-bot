@@ -1,19 +1,22 @@
-import { ChatMessage } from '../types';
+type ChatMsg = {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  reasoning_details?: unknown;
+};
 
-const context = new Map<number, ChatMessage[]>();
+const contexts = new Map<number, ChatMsg[]>();
 
-export function getUserContext(userId: number): ChatMessage[] {
-  if (!context.has(userId)) {
-    context.set(userId, []);
-  }
-  return context.get(userId)!;
+export function pushToContext(
+  userId: number,
+  role: ChatMsg['role'],
+  content: string,
+  reasoning_details?: unknown,
+) {
+  const arr = contexts.get(userId) ?? [];
+  arr.push({ role, content, reasoning_details });
+  contexts.set(userId, arr.slice(-12));
 }
 
-export function pushToContext(userId: number, role: ChatMessage['role'], content: string) {
-  const history = getUserContext(userId);
-  history.push({ role, content });
-
-  if (history.length > 10) {
-    history.splice(0, history.length - 10);
-  }
+export function getUserContext(userId: number): ChatMsg[] {
+  return contexts.get(userId) ?? [];
 }
