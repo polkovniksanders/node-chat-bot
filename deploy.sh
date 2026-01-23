@@ -1,7 +1,6 @@
 #!/bin/bash
 set -e
 
-# Цвета
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
@@ -12,12 +11,10 @@ echo -e "${BLUE}========================================${NC}"
 echo -e "${BLUE}🚀 Starting deployment...${NC}"
 echo -e "${BLUE}========================================${NC}"
 
-# 1. Pull latest code
 echo -e "${YELLOW}📥 Step 1/8: Pulling latest code from GitHub...${NC}"
 git reset --hard HEAD
 git pull origin main
 
-# 2. Load .env
 echo -e "${YELLOW}🔑 Step 2/8: Loading environment variables...${NC}"
 if [ -f .env ]; then
   export $(grep -v '^#' .env | xargs)
@@ -27,35 +24,28 @@ else
   exit 1
 fi
 
-# 3. Clean old build
 echo -e "${YELLOW}🧹 Step 3/8: Cleaning old build...${NC}"
 rm -rf dist
 
-# 4. Install dependencies (dev included)
 echo -e "${YELLOW}📦 Step 4/8: Installing dependencies...${NC}"
 npm ci
 
-# 5. Type checking
 echo -e "${YELLOW}🔍 Step 5/8: Type checking...${NC}"
-npx tsc --noEmit || {
+npm run typecheck || {
   echo -e "${RED}❌ Type check failed! Aborting deployment.${NC}"
   exit 1
 }
 
-# 6. Build
 echo -e "${YELLOW}🔨 Step 6/8: Building project...${NC}"
 npm run build
 
-# 7. Remove dev dependencies (after build)
 echo -e "${YELLOW}🗑️  Step 7/8: Removing dev dependencies...${NC}"
 npm prune --omit=dev
 
-# 8. Restart PM2
 echo -e "${YELLOW}🚀 Step 8/8: Restarting application with PM2...${NC}"
 pm2 start $(pwd)/dist/index.js --name node_chat_bot --update-env || \
 pm2 restart node_chat_bot --update-env
 
-# Stats
 echo -e "${BLUE}========================================${NC}"
 echo -e "${GREEN}✅ Deployment successful!${NC}"
 echo -e "${BLUE}========================================${NC}"
