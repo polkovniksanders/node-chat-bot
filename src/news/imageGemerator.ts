@@ -9,10 +9,12 @@ export async function generateDigestImage(digestText: string): Promise<string> {
 
   const url = new URL('https://gen.pollinations.ai/image/' + encodeURIComponent(prompt));
   url.searchParams.set('model', 'flux');
-  url.searchParams.set('width', '1024');
-  url.searchParams.set('height', '1024');
+  url.searchParams.set('width', '1000');
+  url.searchParams.set('height', '1000');
   url.searchParams.set('safe', 'true');
   url.searchParams.set('key', apiKey);
+  url.searchParams.set('seed', String(Date.now()));
+  url.searchParams.set('_ts', Date.now().toString());
 
   const response = await fetch(url.toString(), {
     method: 'GET',

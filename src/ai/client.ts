@@ -1,5 +1,5 @@
 import { getUserContext, pushToContext } from '../context/memory.js';
-import { PROMPT } from './options.js';
+import { CHAT_BOT_PROMPT } from '../config/prompts.js';
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
@@ -27,7 +27,7 @@ export async function generateReply(userId: number, userMessage: string): Promis
   const userContext = getUserContext(userId);
 
   const messages = [
-    { role: 'system', content: PROMPT },
+    { role: 'system', content: CHAT_BOT_PROMPT },
     ...userContext.map((m) => {
       const msg: any = { role: m.role, content: m.content };
       if (m.role === 'assistant' && m.reasoning_details) {
