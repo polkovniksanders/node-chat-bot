@@ -16,8 +16,7 @@
     "@openrouter/sdk": "^0.4.0",
     "dotenv": "^17.2.3",
     "grammy": "^1.39.3",
-    "node-cron": "^3.0.3",
-    "node-fetch": "^3.3.2"
+    "node-cron": "^3.0.3"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
