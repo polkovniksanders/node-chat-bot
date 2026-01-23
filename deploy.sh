@@ -15,35 +15,46 @@ echo -e "${BLUE}🚀 Starting deployment...${NC}"
 echo -e "${BLUE}========================================${NC}"
 
 # 1. Получаем последние изменения
-echo -e "${YELLOW}📥 Step 1/7: Pulling latest code from GitHub...${NC}"
+echo -e "${YELLOW}📥 Step 1/8: Pulling latest code from GitHub...${NC}"
 git reset --hard HEAD
-git pull origin main  # Или master, если у вас main ветка называется master
+git pull origin main  # Или master, если ваша ветка master
 
-# 2. Очищаем старую сборку
-echo -e "${YELLOW}🧹 Step 2/7: Cleaning old build...${NC}"
+# 2. Подгружаем переменные окружения
+echo -e "${YELLOW}🔑 Step 2/8: Loading environment variables...${NC}"
+if [ -f .env ]; then
+  export $(grep -v '^#' .env | xargs)
+  echo -e "${GREEN}✅ .env loaded${NC}"
+else
+  echo -e "${RED}❌ .env file not found! Aborting.${NC}"
+  exit 1
+fi
+
+# 3. Очищаем старую сборку
+echo -e "${YELLOW}🧹 Step 3/8: Cleaning old build...${NC}"
 rm -rf dist
 
-# 3. Устанавливаем зависимости (включая dev для сборки)
-echo -e "${YELLOW}📦 Step 3/7: Installing dependencies...${NC}"
+# 4. Устанавливаем зависимости (включая dev для сборки)
+echo -e "${YELLOW}📦 Step 4/8: Installing dependencies...${NC}"
 npm ci
 
-# 4. Проверяем типы (опционально, но рекомендуется)
-echo -e "${YELLOW}🔍 Step 4/7: Type checking...${NC}"
+# 5. Проверяем типы (опционально, но рекомендуется)
+echo -e "${YELLOW}🔍 Step 5/8: Type checking...${NC}"
 npm run typecheck || {
   echo -e "${RED}❌ Type check failed! Aborting deployment.${NC}"
   exit 1
 }
 
-# 5. Собираем проект
-echo -e "${YELLOW}🔨 Step 5/7: Building project...${NC}"
+# 6. Собираем проект
+echo -e "${YELLOW}🔨 Step 6/8: Building project...${NC}"
 npm run build
 
-# 6. Удаляем dev-зависимости (экономим ~150MB)
-echo -e "${YELLOW}🗑️  Step 6/7: Removing dev dependencies...${NC}"
+# 7. Удаляем dev-зависимости (экономим место)
+echo -e "${YELLOW}🗑️  Step 7/8: Removing dev dependencies...${NC}"
 npm prune --omit=dev
 
-# 7. Перезапускаем PM2
-echo -e "${YELLOW}🚀 Step 7/7: Restarting application...${NC}"
+# 8. Перезапускаем PM2 с абсолютным путём и обновлённым env
+echo -e "${YELLOW}🚀 Step 8/8: Restarting application with PM2...${NC}"
+pm2 start $(pwd)/dist/index.js --name node_chat_bot --update-env || \
 pm2 restart node_chat_bot --update-env
 
 # Показываем статистику
