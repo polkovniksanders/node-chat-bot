@@ -6,8 +6,6 @@ export function setupDailyNewsCron() {
   //timezone -5
 
   cron.schedule('15 4,7,10,12,16 * * *', async () => {
-    console.log('CRON TICK', new Date().toISOString());
-
     try {
       const digest = await getNewsDigestEmoji();
 
