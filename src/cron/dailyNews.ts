@@ -1,16 +1,19 @@
 import cron from 'node-cron';
-import { bot } from '../botInstance.js';
 import { getNewsDigestEmoji } from '../news/news.js';
+import { bot } from '../botInstance.js';
+import { generateDigestImage } from '../news/imageGemerator';
 
 export function setupDailyNewsCron() {
-  cron.schedule('0 * * * *', async () => {
+  cron.schedule('0 9,12,16,21 * * *', async () => {
     try {
       const digest = await getNewsDigestEmoji();
-      await bot.api.sendMessage(process.env.CHANNEL_ID!, digest, {
-        parse_mode: 'HTML',
-      });
+      const imageUrl = await generateDigestImage(digest.text);
 
-      console.log('digest', digest);
+      await bot.api.sendPhoto(process.env.CHANNEL_ID!, imageUrl, {
+        caption: digest.text,
+        parse_mode: 'HTML',
+        reply_markup: digest.reply_markup,
+      });
 
       console.log('📰 News digest sent');
     } catch (err) {
@@ -18,5 +21,5 @@ export function setupDailyNewsCron() {
     }
   });
 
-  console.log('⏰ Cron for hourly news started');
+  console.log('⏰ Cron for daily news started at 9:00, 12:00, 16:00, 21:00');
 }

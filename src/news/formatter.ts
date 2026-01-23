@@ -1,9 +1,16 @@
-export function formatDigest(content: string): string {
-  return `
-<b>🌅 Утренний дайджест новостей</b>
+import { InlineKeyboard } from 'grammy';
+
+export function formatDigest(content: string) {
+  return {
+    text: `
+<b>📰 Дайджест новостей</b>
 
 ${content}
 
-Хорошего дня, мур! 😺
-  `;
+— — —
+`,
+    reply_markup: new InlineKeyboard()
+      .switchInline('📤 Поделиться')
+      .url('⭐ Подписаться', 'https://t.me/stepka_and_twitty'),
+  };
 }

@@ -7,5 +7,8 @@ const CHANNEL_ID = process.env.CHANNEL_ID!;
 
 cron.schedule('0 9 * * *', async () => {
   const digest = await getNewsDigestEmoji();
-  await bot.api.sendMessage(CHANNEL_ID, digest, { parse_mode: 'HTML' });
+  await bot.api.sendMessage(CHANNEL_ID, digest.text, {
+    parse_mode: 'HTML',
+    reply_markup: digest.reply_markup,
+  });
 });
