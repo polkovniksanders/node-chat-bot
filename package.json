@@ -7,16 +7,21 @@
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "node scripts/build.js",
-    "start": "NODE_ENV=production node dist/index.js",
+    "build": "npm run clean && tsc && tsc-alias",
+    "build:prod": "npm run build && npm run minify",
+    "minify": "node --experimental-strip-types scripts/minify.js",
+    "start": "NODE_ENV=production node --enable-source-maps dist/index.js",
+    "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext .ts"
   },
   "dependencies": {
     "@openrouter/sdk": "^0.4.0",
     "dotenv": "^17.2.3",
+    "express": "^5.2.1",
     "grammy": "^1.39.3",
-    "node-cron": "^3.0.3"
+    "node-cron": "^3.0.3",
+    "openai": "^6.16.0"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
@@ -24,7 +29,7 @@
     "@types/node-cron": "^3.0.11",
     "@typescript-eslint/eslint-plugin": "^8.53.1",
     "@typescript-eslint/parser": "^8.53.1",
-    "esbuild": "0.25.0",
+    "esbuild": "^0.20.0",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.5",
