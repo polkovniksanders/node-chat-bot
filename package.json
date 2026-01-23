@@ -9,7 +9,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "node scripts/build.js",
     "start": "NODE_ENV=production node dist/index.js",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "npx tsc --noEmit",
     "lint": "eslint src --ext .ts"
   },
   "dependencies": {
@@ -19,19 +19,18 @@
     "node-cron": "^3.0.3"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.2",
-    "@types/express": "^5.0.6",
     "@types/node": "^20.11.30",
     "@types/node-cron": "^3.0.11",
     "@typescript-eslint/eslint-plugin": "^8.53.1",
     "@typescript-eslint/parser": "^8.53.1",
+    "typescript": "^5.9.3",
+    "tsc-alias": "^1.8.16",
     "esbuild": "0.25.0",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.5",
     "prettier": "^3.8.0",
-    "tsc-alias": "^1.8.16",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "@types/express": "^5.0.6"
   }
 }
