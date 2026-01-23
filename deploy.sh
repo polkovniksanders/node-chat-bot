@@ -39,7 +39,7 @@ npm ci
 
 # 5. Проверяем типы (опционально, но рекомендуется)
 echo -e "${YELLOW}🔍 Step 5/8: Type checking...${NC}"
-npm run typecheck || {
+npx tsc --noEmit || {
   echo -e "${RED}❌ Type check failed! Aborting deployment.${NC}"
   exit 1
 }
