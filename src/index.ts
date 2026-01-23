@@ -1,9 +1,9 @@
 import 'dotenv/config';
 import express from 'express';
-import { webhookCallback } from 'grammy';
 
-import { bot } from './botInstance.js';
+import { webhookCallback } from 'grammy';
 import { setupHandlers } from './bot/handlers.js';
+import { bot } from './botInstance.js';
 import { setupDailyNewsCron } from './cron/dailyNews.js';
 
 const isLocal = process.env.NODE_ENV !== 'production';
