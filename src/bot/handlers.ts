@@ -1,5 +1,5 @@
-import { bot } from '@/botInstance';
-import { generateReply } from '@/ai/client';
+import { bot } from '@/botInstance.js';
+import { generateReply } from '@/ai/client.js';
 
 export function setupHandlers(botInstance: typeof bot) {
   botInstance.on('message:text', async (ctx) => {

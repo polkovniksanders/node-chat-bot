@@ -1,11 +1,11 @@
 import cron from 'node-cron';
-import { getNewsDigestEmoji } from '@/news/news';
-import { bot } from '@/botInstance';
+import { getNewsDigestEmoji } from '@/news/news.js';
+import { bot } from '@/botInstance.js';
 
 export function setupDailyNewsCron() {
   //timezone -5
 
-  cron.schedule('52 4,7,10,16 * * *', async () => {
+  cron.schedule('15 4,7,10,12,16 * * *', async () => {
     console.log('CRON TICK', new Date().toISOString());
 
     try {
