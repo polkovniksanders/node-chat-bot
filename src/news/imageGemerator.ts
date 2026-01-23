@@ -1,28 +1,31 @@
 import { buildImagePrompt } from './buildImagePrompt.js';
-import { OpenRouter } from '@openrouter/sdk';
-
-const openrouter = new OpenRouter({
-  apiKey: process.env.OPENROUTER_API_KEY || '',
-});
 
 export async function generateDigestImage(digestText: string): Promise<string> {
   const prompt = buildImagePrompt(digestText);
-
-  const response = await openrouter.chat.send({
-    model: 'sourceful/riverflow-v2-standard-preview',
-    messages: [
-      {
-        role: 'user',
-        content: prompt,
-      },
-    ],
-    modalities: ['image', 'text'],
-  });
-
-  const message = response.choices[0].message;
-  if (!message.images || message.images.length === 0) {
-    throw new Error('No image generated');
+  const apiKey = process.env.POLLINATIONS_API_KEY;
+  if (!apiKey) {
+    throw new Error('POLLINATIONS_API_KEY is not set');
   }
 
-  return message.images[0].imageUrl.url;
+  const url = new URL('https://gen.pollinations.ai/image/' + encodeURIComponent(prompt));
+  url.searchParams.set('model', 'flux');
+  url.searchParams.set('width', '1024');
+  url.searchParams.set('height', '1024');
+  url.searchParams.set('safe', 'true');
+  url.searchParams.set('key', apiKey);
+
+  const response = await fetch(url.toString(), {
+    method: 'GET',
+  });
+
+  if (!response.ok) {
+    throw new Error(`Pollinations API error: ${response.status} ${response.statusText}`);
+  }
+
+  const imageUrl = response.url;
+  if (!imageUrl || !imageUrl.startsWith('http')) {
+    throw new Error('Invalid image URL returned from Pollinations');
+  }
+
+  return imageUrl;
 }

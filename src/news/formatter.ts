@@ -1,5 +1,3 @@
-import { InlineKeyboard } from 'grammy';
-
 export function formatDigest(content: string) {
   return {
     text: `
@@ -7,10 +5,8 @@ export function formatDigest(content: string) {
 
 ${content}
 
-— — —
+<a href="https://t.me/stepka_and_twitty">⭐ Подписаться</a>
+
 `,
-    reply_markup: new InlineKeyboard()
-      .switchInline('📤 Поделиться')
-      .url('⭐ Подписаться', 'https://t.me/stepka_and_twitty'),
   };
 }
