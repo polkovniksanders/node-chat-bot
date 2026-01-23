@@ -1,7 +1,7 @@
 export function formatDigest(content: string) {
   return {
     text: `
-<b>📰 Дайджест новостей</b>
+<b>📰 Котовости</b>
 
 ${content}
 

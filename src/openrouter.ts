@@ -10,7 +10,11 @@ export async function fetchOpenRouter(prompt: string): Promise<string> {
     body: JSON.stringify({
       model: 'meta-llama/llama-3.3-70b-instruct:free',
       messages: [
-        { role: 'system', content: 'Ты — новостной агрегатор. Дай только факты.' },
+        {
+          role: 'system',
+          content:
+            'Ты — новостной агрегатор. Дай только факты. Каждая новость должна быть короткой, 1–2 предложения, лаконично, без лишних деталей.',
+        },
         { role: 'user', content: prompt },
       ],
     }),
