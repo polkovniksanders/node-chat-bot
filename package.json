@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "node scripts/build.js",
+    "build": "node deploy/build.ts",
     "start": "NODE_ENV=production node dist/index.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext .ts"
