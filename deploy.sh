@@ -1,25 +1,23 @@
 #!/bin/bash
-
-# Останавливаем выполнение при любой ошибке
 set -e
 
-# Цвета для вывода
+# Цвета
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 echo -e "${BLUE}========================================${NC}"
 echo -e "${BLUE}🚀 Starting deployment...${NC}"
 echo -e "${BLUE}========================================${NC}"
 
-# 1. Получаем последние изменения
+# 1. Pull latest code
 echo -e "${YELLOW}📥 Step 1/8: Pulling latest code from GitHub...${NC}"
 git reset --hard HEAD
-git pull origin main  # Или master, если ваша ветка master
+git pull origin main
 
-# 2. Подгружаем переменные окружения
+# 2. Load .env
 echo -e "${YELLOW}🔑 Step 2/8: Loading environment variables...${NC}"
 if [ -f .env ]; then
   export $(grep -v '^#' .env | xargs)
@@ -29,35 +27,35 @@ else
   exit 1
 fi
 
-# 3. Очищаем старую сборку
+# 3. Clean old build
 echo -e "${YELLOW}🧹 Step 3/8: Cleaning old build...${NC}"
 rm -rf dist
 
-# 4. Устанавливаем зависимости (включая dev для сборки)
+# 4. Install dependencies (dev included)
 echo -e "${YELLOW}📦 Step 4/8: Installing dependencies...${NC}"
 npm ci
 
-# 5. Проверяем типы (опционально, но рекомендуется)
+# 5. Type checking
 echo -e "${YELLOW}🔍 Step 5/8: Type checking...${NC}"
 npx tsc --noEmit || {
   echo -e "${RED}❌ Type check failed! Aborting deployment.${NC}"
   exit 1
 }
 
-# 6. Собираем проект
+# 6. Build
 echo -e "${YELLOW}🔨 Step 6/8: Building project...${NC}"
 npm run build
 
-# 7. Удаляем dev-зависимости (экономим место)
+# 7. Remove dev dependencies (after build)
 echo -e "${YELLOW}🗑️  Step 7/8: Removing dev dependencies...${NC}"
 npm prune --omit=dev
 
-# 8. Перезапускаем PM2 с абсолютным путём и обновлённым env
+# 8. Restart PM2
 echo -e "${YELLOW}🚀 Step 8/8: Restarting application with PM2...${NC}"
 pm2 start $(pwd)/dist/index.js --name node_chat_bot --update-env || \
 pm2 restart node_chat_bot --update-env
 
-# Показываем статистику
+# Stats
 echo -e "${BLUE}========================================${NC}"
 echo -e "${GREEN}✅ Deployment successful!${NC}"
 echo -e "${BLUE}========================================${NC}"
