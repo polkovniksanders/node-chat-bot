@@ -1,4 +1,4 @@
-import { buildImagePrompt } from './buildImagePrompt';
+import { buildImagePrompt } from './buildImagePrompt.js';
 import { OpenRouter } from '@openrouter/sdk';
 
 const openrouter = new OpenRouter({
