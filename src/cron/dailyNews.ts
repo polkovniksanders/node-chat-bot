@@ -3,7 +3,9 @@ import { getNewsDigestEmoji } from '../news/news.js';
 import { bot } from '../botInstance.js';
 
 export function setupDailyNewsCron() {
-  cron.schedule('48 9,15,17,21 * * *', async () => {
+  //timezone -5
+
+  cron.schedule('57 4,10,11,12,13,16 * * *', async () => {
     console.log('CRON TICK', new Date().toISOString());
 
     try {
