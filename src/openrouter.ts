@@ -21,5 +21,6 @@ export async function fetchOpenRouter(prompt: string): Promise<string> {
   });
 
   const data = await response.json();
+  // @ts-ignore
   return data.choices?.[0]?.message?.content ?? '';
 }
