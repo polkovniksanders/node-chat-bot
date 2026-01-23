@@ -1,5 +1,5 @@
-import { getUserContext, pushToContext } from '../context/memory.js';
-import { CHAT_BOT_PROMPT } from '../config/prompts.js';
+import { getUserContext, pushToContext } from '@/context/memory';
+import { CHAT_BOT_PROMPT } from '@/config/prompts';
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
@@ -44,6 +44,7 @@ export async function generateReply(userId: number, userMessage: string): Promis
       reasoning: { enabled: true },
     });
 
+    // @ts-ignore
     const responseMsg = data.choices?.[0]?.message;
 
     // -----------------------------

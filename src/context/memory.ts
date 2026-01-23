@@ -1,8 +1,4 @@
-type ChatMsg = {
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-  reasoning_details?: unknown;
-};
+import { ChatMsg } from '@/types';
 
 const contexts = new Map<number, ChatMsg[]>();
 

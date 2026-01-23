@@ -1,6 +1,6 @@
 import cron from 'node-cron';
-import { getNewsDigestEmoji } from '../news/news.js';
-import { bot } from '../botInstance.js';
+import { getNewsDigestEmoji } from '@/news/news';
+import { bot } from '@/botInstance';
 
 export function setupDailyNewsCron() {
   //timezone -5
