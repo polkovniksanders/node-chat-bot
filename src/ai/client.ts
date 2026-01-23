@@ -46,6 +46,7 @@ export async function generateReply(userId: number, userMessage: string): Promis
 
     // @ts-ignore
     const responseMsg = data.choices?.[0]?.message;
+    console.log('responseMsg', responseMsg);
 
     // -----------------------------
     // 🔥 Универсальный парсер контента
