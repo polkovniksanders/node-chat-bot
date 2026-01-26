@@ -12,6 +12,7 @@ export async function fetchOpenAI(prompt: string): Promise<string> {
       { role: 'user', content: prompt },
     ],
   });
+  console.log('fetchOpenAI response', response);
 
   return response.choices[0].message.content ?? '';
 }
