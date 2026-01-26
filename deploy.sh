@@ -1,65 +1,65 @@
 #!/bin/bash
-
-# Останавливаем выполнение при любой ошибке
 set -e
 
-# Цвета для вывода
 GREEN='\033[0;32m'
-BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
 RED='\033[0;31m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 echo -e "${BLUE}========================================${NC}"
-echo -e "${BLUE}🚀 Starting deployment...${NC}"
+echo -e "${BLUE}🚀 Starting PRODUCTION deployment...${NC}"
 echo -e "${BLUE}========================================${NC}"
 
-# 1. Получаем последние изменения
-echo -e "${YELLOW}📥 Step 1/7: Pulling latest code from GitHub...${NC}"
+# 1. Подтягиваем последние изменения
+echo -e "${YELLOW}📥 Pulling latest code...${NC}"
 git reset --hard HEAD
-git pull origin main  # Или master, если у вас main ветка называется master
+git pull origin main
 
-# 2. Очищаем старую сборку
-echo -e "${YELLOW}🧹 Step 2/7: Cleaning old build...${NC}"
+# 2. Загружаем .env в окружение текущей сессии
+echo -e "${YELLOW}🔐 Loading .env variables...${NC}"
+if [ -f .env ]; then
+  export $(grep -v '^#' .env | xargs)
+else
+  echo -e "${RED}❌ .env file not found!${NC}"
+  exit 1
+fi
+
+# 3. Удаляем старую сборку
+echo -e "${YELLOW}🧹 Cleaning old build...${NC}"
 rm -rf dist
 
-# 3. Устанавливаем зависимости (включая dev для сборки)
-echo -e "${YELLOW}📦 Step 3/7: Installing dependencies...${NC}"
-npm ci
+# 4. Устанавливаем зависимости (включая dev)
+echo -e "${YELLOW}📦 Installing dependencies (dev included)...${NC}"
+NODE_ENV=development npm ci
 
-# 4. Проверяем типы (опционально, но рекомендуется)
-echo -e "${YELLOW}🔍 Step 4/7: Type checking...${NC}"
+# 5. Проверяем типы
+echo -e "${YELLOW}🔍 Type checking...${NC}"
 npm run typecheck || {
-  echo -e "${RED}❌ Type check failed! Aborting deployment.${NC}"
+  echo -e "${RED}❌ Type check failed! Aborting.${NC}"
   exit 1
 }
 
-# 5. Собираем проект
-echo -e "${YELLOW}🔨 Step 5/7: Building project...${NC}"
+# 6. Сборка проекта
+echo -e "${YELLOW}🔨 Building project...${NC}"
 npm run build
 
-# 6. Удаляем dev-зависимости (экономим ~150MB)
-echo -e "${YELLOW}🗑️  Step 6/7: Removing dev dependencies...${NC}"
+# 7. Удаляем dev-зависимости
+echo -e "${YELLOW}🗑️  Removing dev dependencies...${NC}"
 npm prune --omit=dev
 
-# 7. Перезапускаем PM2
-echo -e "${YELLOW}🚀 Step 7/7: Restarting application...${NC}"
-pm2 restart node_chat_bot --update-env
+# 8. Перезапуск PM2 с ecosystem.config.js
+echo -e "${YELLOW}🚀 Restarting PM2 (production)...${NC}"
+pm2 startOrReload ecosystem.config.js --update-env
+pm2 save
 
-# Показываем статистику
+# 9. Готово
 echo -e "${BLUE}========================================${NC}"
-echo -e "${GREEN}✅ Deployment successful!${NC}"
+echo -e "${GREEN}✅ Deployment completed successfully!${NC}"
 echo -e "${BLUE}========================================${NC}"
-
-echo -e "${BLUE}📊 Bundle size:${NC}"
-du -sh dist/
-ls -lh dist/
-
-echo -e "${BLUE}💾 node_modules size:${NC}"
-du -sh node_modules/
 
 echo -e "${BLUE}📱 PM2 status:${NC}"
 pm2 status
 
 echo -e "${BLUE}📋 Recent logs:${NC}"
-pm2 logs node_chat_bot --lines 20 --nostream
+pm2 logs node_chat_bot --lines

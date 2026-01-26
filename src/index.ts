@@ -3,8 +3,8 @@ import { bot } from '@/botInstance.js';
 import { setupHandlers } from '@/bot/handlers.js';
 import { setupDailyNewsCron } from '@/cron/dailyNews.js';
 
-if (!process.env.BOT_TOKEN) {
-  console.error('❌ BOT_TOKEN не задан в .env');
+if (!process.env.TELEGRAM_TOKEN) {
+  console.error('❌ TELEGRAM_TOKEN не задан в .env');
   process.exit(1);
 }
 
