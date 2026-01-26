@@ -6,8 +6,6 @@ export function setupHandlers(botInstance: typeof bot) {
     const userId = ctx.from.id;
     const text = ctx.message.text;
 
-    console.log('text', text);
-
     const reply = await generateReply(userId, text);
 
     await ctx.reply(reply);

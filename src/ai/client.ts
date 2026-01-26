@@ -1,87 +1,42 @@
+import OpenAI from 'openai';
 import { getUserContext, pushToContext } from '@/context/memory.js';
 import { CHAT_BOT_PROMPT } from '@/config/prompts.js';
+import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 
-const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
-
-async function openrouterChat(body: any) {
-  const res = await fetch(OPENROUTER_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-      'Content-Type': 'application/json',
-      'HTTP-Referer': 'https://yourdomain.com',
-      'X-Title': 'Telegram AI Bot',
-    },
-    body: JSON.stringify(body),
-  });
-
-  if (!res.ok) {
-    throw new Error(await res.text());
-  }
-
-  return res.json();
-}
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY!,
+});
 
 export async function generateReply(userId: number, userMessage: string): Promise<string> {
   pushToContext(userId, 'user', userMessage);
+
   const userContext = getUserContext(userId);
 
-  const messages = [
+  const messages: ChatCompletionMessageParam[] = [
     { role: 'system', content: CHAT_BOT_PROMPT },
-    ...userContext.map((m) => {
-      const msg: any = { role: m.role, content: m.content };
-      if (m.role === 'assistant' && m.reasoning_details) {
-        msg.reasoning_details = m.reasoning_details;
-      }
-      return msg;
-    }),
+    ...userContext.map((m) => ({
+      role: m.role as 'user' | 'assistant',
+      content: m.content,
+    })),
   ];
 
   try {
-    const data = await openrouterChat({
-      model: 'xiaomi/mimo-v2-flash:free',
+    const response = await client.chat.completions.create({
+      model: 'gpt-4o-mini',
       messages,
-      reasoning: { enabled: true },
+      temperature: 0.7,
     });
 
-    // @ts-ignore
-    const responseMsg = data.choices?.[0]?.message;
-    console.log('responseMsg', responseMsg);
+    const answer = response.choices[0]?.message?.content ?? '';
 
-    // -----------------------------
-    // 🔥 Универсальный парсер контента
-    // -----------------------------
-    let answer = '';
+    const finalAnswer =
+      answer.trim().length > 0 ? answer : 'Извини, я не понял вопрос. Попробуй переформулировать.';
 
-    if (typeof responseMsg?.content === 'string') {
-      answer = responseMsg.content;
-    } else if (Array.isArray(responseMsg?.content)) {
-      answer = responseMsg.content
-        .filter((c: any) => c.type === 'text')
-        .map((c: any) => c.text)
-        .join('\n');
-    }
+    pushToContext(userId, 'assistant', finalAnswer);
 
-    // -----------------------------
-    // 🔥 Защита от пустых ответов
-    // -----------------------------
-    if (!answer || !answer.trim()) {
-      answer = 'Извини, я не понял вопрос. Попробуй переформулировать.';
-    }
-
-    // -----------------------------
-    // 🔥 Сохраняем reasoning_details
-    // -----------------------------
-    const reasoningDetails = (responseMsg as any)?.reasoning_details ?? null;
-
-    pushToContext(userId, 'assistant', answer, reasoningDetails);
-
-    console.log('userMessage', userMessage);
-    console.log('answer', answer);
-
-    return answer;
+    return finalAnswer;
   } catch (err) {
-    console.error('OpenRouter error:', err);
+    console.error('OPENAI ERROR:', err);
     return 'Ошибка при обращении к модели';
   }
 }
