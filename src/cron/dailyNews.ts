@@ -15,7 +15,7 @@ export function setupDailyNewsCron() {
         parse_mode: 'HTML',
       });
     } catch (err) {
-      await bot.api.sendMessage('@node_js_test', err.toString());
+      await bot.api.sendMessage('@node_js_test', `Ошибка крона ${err}`);
       console.error('❌ Failed to send news digest:', err);
     }
   });
