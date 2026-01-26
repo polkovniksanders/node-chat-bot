@@ -50,7 +50,7 @@ npm prune --omit=dev
 
 # 8. Перезапуск PM2 с ecosystem.config.js
 echo -e "${YELLOW}🚀 Restarting PM2 (production)...${NC}"
-pm2 startOrReload ecosystem.config.js --update-env
+pm2 startOrReload ecosystem.config.cjs --update-env
 pm2 save
 
 # 9. Готово
