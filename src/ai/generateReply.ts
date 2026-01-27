@@ -1,6 +1,6 @@
 import { openrouterChat } from '@/news/openrouter-chat.js';
 import { getUserContext, pushToContext } from '@/context/memory.js';
-import { CHAT_BOT_PROMPT } from '@/config/prompts';
+import { CHAT_BOT_PROMPT } from '@/config/prompts.js';
 import { OpenRouterResponse } from '@/types';
 
 export async function generateReply(userId: number, userMessage: string): Promise<string> {
