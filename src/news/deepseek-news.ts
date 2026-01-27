@@ -1,19 +1,33 @@
-import { deepseek } from '@/news/deepseek.js';
+import { openrouterChat } from '@/news/openrouter-chat.js';
+import { OpenRouterResponse } from '@/types';
 
-export async function fetchDeepSeekNews(prompt: string): Promise<string> {
+export async function fetchNews(prompt: string): Promise<string> {
   try {
-    const response = await deepseek.chat.completions.create({
-      model: 'deepseek-chat',
+    const data = (await openrouterChat({
+      model: 'deepseek/deepseek-r1-0528:free',
       messages: [
         { role: 'system', content: 'Ты — новостной агрегатор. Дай только факты, коротко.' },
         { role: 'user', content: prompt },
       ],
-      temperature: 0.7,
-    });
+      reasoning: { enabled: true },
+    })) as OpenRouterResponse;
 
-    return response.choices[0].message.content ?? '';
+    const msg = data.choices?.[0]?.message;
+
+    if (typeof msg?.content === 'string') {
+      return msg.content;
+    }
+
+    if (Array.isArray(msg?.content)) {
+      return msg.content
+        .filter((c: any) => c.type === 'text')
+        .map((c: any) => c.text)
+        .join('\n');
+    }
+
+    return '';
   } catch (err) {
-    console.error('DEEPSEEK NEWS ERROR:', err);
+    console.error('NEWS ERROR:', err);
     return '';
   }
 }
