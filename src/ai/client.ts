@@ -1,42 +1,30 @@
-import OpenAI from 'openai';
 import { getUserContext, pushToContext } from '@/context/memory.js';
 import { CHAT_BOT_PROMPT } from '@/config/prompts.js';
-import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY!,
-});
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
-export async function generateReply(userId: number, userMessage: string): Promise<string> {
+export async function generateReply(userId: number, userMessage: string) {
   pushToContext(userId, 'user', userMessage);
 
-  const userContext = getUserContext(userId);
+  const history = getUserContext(userId);
 
-  const messages: ChatCompletionMessageParam[] = [
-    { role: 'system', content: CHAT_BOT_PROMPT },
-    ...userContext.map((m) => ({
-      role: m.role as 'user' | 'assistant',
-      content: m.content,
-    })),
-  ];
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
-  try {
-    const response = await client.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages,
-      temperature: 0.7,
-    });
+  const result = await model.generateContent({
+    contents: [
+      { role: 'user', parts: [{ text: CHAT_BOT_PROMPT }] },
+      ...history.map((m) => ({
+        role: m.role,
+        parts: [{ text: m.content }],
+      })),
+      { role: 'user', parts: [{ text: userMessage }] },
+    ],
+  });
 
-    const answer = response.choices[0]?.message?.content ?? '';
+  const answer = result.response.text() ?? 'Не понял, повтори';
 
-    const finalAnswer =
-      answer.trim().length > 0 ? answer : 'Извини, я не понял вопрос. Попробуй переформулировать.';
+  pushToContext(userId, 'assistant', answer);
 
-    pushToContext(userId, 'assistant', finalAnswer);
-
-    return finalAnswer;
-  } catch (err) {
-    console.error('OPENAI ERROR:', err);
-    return 'Ошибка при обращении к модели';
-  }
+  return answer;
 }
