@@ -8,11 +8,10 @@ export async function fetchOpenAI(prompt: string): Promise<string> {
   const response = await client.chat.completions.create({
     model: 'gpt-4o-mini',
     messages: [
-      { role: 'system', content: 'Ты — новостной агрегатор. Дай только факты.' },
+      { role: 'system', content: 'Ты — новостной агрегатор. Дай только факты, коротко.' },
       { role: 'user', content: prompt },
     ],
   });
-  console.log('fetchOpenAI response', response);
 
   return response.choices[0].message.content ?? '';
 }
