@@ -3,7 +3,7 @@ import { getNewsDigestEmoji } from '@/news/news.js';
 import { bot } from '@/botInstance.js';
 
 export function setupDailyNewsCron() {
-  cron.schedule('07 4,14,17,18,22 * * *', async () => {
+  cron.schedule('15 4,7,12,16 * * *', async () => {
     try {
       const digest = await getNewsDigestEmoji();
       console.log('digest', digest);
@@ -20,5 +20,5 @@ export function setupDailyNewsCron() {
     }
   });
 
-  console.log('⏰ Cron for daily news scheduled (UTC-5)');
+  console.log('⏰ Cron for daily news scheduled (UTC, local UTC+5: 9:15, 12:15, 17:15, 21:15)');
 }
