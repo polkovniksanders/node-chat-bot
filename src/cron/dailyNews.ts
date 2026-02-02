@@ -3,7 +3,7 @@ import { getNewsDigestEmoji } from '@/news/news.js';
 import { bot } from '@/botInstance.js';
 
 export function setupDailyNewsCron() {
-  cron.schedule('15 4,7,12,16 * * *', async () => {
+  cron.schedule('30 5, 11, 18 * * *', async () => {
     try {
       const digest = await getNewsDigestEmoji();
       console.log('digest', digest);
@@ -15,10 +15,11 @@ export function setupDailyNewsCron() {
         parse_mode: 'HTML',
       });
     } catch (err) {
-      await bot.api.sendMessage('@node_js_test', `Ошибка ${err}`);
+      const errorMsg = `❌ Не удалось сгенерировать новости.\n\nОшибка: ${err instanceof Error ? err.message : err}`;
+      await bot.api.sendMessage('@node_js_test', errorMsg).catch(() => {});
       console.error('❌ Failed to send news digest:', err);
     }
   });
 
-  console.log('⏰ Cron for daily news scheduled (UTC, local UTC+5: 9:15, 12:15, 17:15, 21:15)');
+  console.log('⏰ Cron for daily news scheduled');
 }
