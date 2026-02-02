@@ -3,7 +3,7 @@ import { getNewsDigestEmoji } from '@/news/news.js';
 import { bot } from '@/botInstance.js';
 
 export function setupDailyNewsCron() {
-  cron.schedule('30 5, 11, 18 * * *', async () => {
+  cron.schedule('30 5,11,18 * * *', async () => {
     try {
       const digest = await getNewsDigestEmoji();
       console.log('digest', digest);
