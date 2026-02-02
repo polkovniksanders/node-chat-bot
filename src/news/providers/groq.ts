@@ -1,4 +1,4 @@
-import { NEWS_GENERATION_PROMPT } from '@/config/prompts';
+import { NEWS_GENERATION_PROMPT } from '@/config/prompts.js';
 
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
