@@ -2,7 +2,13 @@ import { fetchOpenAI } from '@/news/providers/openAI.js';
 import { fetchGemini } from '@/news/providers/gemini.js';
 import { fetchGroq } from '@/news/providers/groq.js';
 import { fetchWithOpenRouter } from '@/news/providers/openRouter.js';
-import { fetchHuggingFace } from '@/news/providers/huggingface.js';
+import {
+  fetchHuggingFace,
+  fetchHuggingFaceQwen,
+  fetchHuggingFaceLlama,
+  fetchHuggingFaceMistral,
+  fetchHuggingFacePhi,
+} from '@/news/providers/huggingface.js';
 
 type AIProvider = {
   name: string;
@@ -11,6 +17,10 @@ type AIProvider = {
 
 const AI_PROVIDERS: AIProvider[] = [
   { name: 'HuggingFace (DeepSeek-R1)', fetch: fetchHuggingFace },
+  { name: 'HuggingFace (Qwen 2.5 72B)', fetch: fetchHuggingFaceQwen },
+  { name: 'HuggingFace (Llama 3.3 70B)', fetch: fetchHuggingFaceLlama },
+  { name: 'HuggingFace (Mistral Small 24B)', fetch: fetchHuggingFaceMistral },
+  { name: 'HuggingFace (Phi-4)', fetch: fetchHuggingFacePhi },
   { name: 'Groq (Llama 3.3 70B)', fetch: fetchGroq },
   { name: 'OpenRouter (DeepSeek)', fetch: fetchWithOpenRouter },
   { name: 'OpenAI (GPT-4o-mini)', fetch: fetchOpenAI },
