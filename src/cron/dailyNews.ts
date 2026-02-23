@@ -3,7 +3,8 @@ import { getNewsDigestEmoji } from '@/news/news.js';
 import { bot } from '@/botInstance.js';
 
 export function setupDailyNewsCron() {
-  cron.schedule('30 5,11,18 * * *', async () => {
+  // 11:00 AM по Челябинскому времени (Asia/Yekaterinburg, UTC+5)
+  cron.schedule('0 11 * * *', async () => {
     try {
       const digest = await getNewsDigestEmoji();
       console.log('digest', digest);
@@ -19,7 +20,7 @@ export function setupDailyNewsCron() {
       await bot.api.sendMessage('@node_js_test', errorMsg).catch(() => {});
       console.error('❌ Failed to send news digest:', err);
     }
-  });
+  }, { timezone: 'Asia/Yekaterinburg' });
 
-  console.log('⏰ Cron for daily news scheduled');
+  console.log('⏰ Cron for daily news scheduled (11:00 AM Chelyabinsk time)');
 }
