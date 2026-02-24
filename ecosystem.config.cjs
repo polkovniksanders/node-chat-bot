@@ -11,6 +11,7 @@ module.exports = {
         DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY,
         OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
         GROQ_API_KEY: process.env.GROQ_API_KEY,
+        ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
         HF_TOKEN: process.env.HF_TOKEN,
         CHANNEL_ID: process.env.CHANNEL_ID,
         EVENTS_CHANNEL_ID: process.env.EVENTS_CHANNEL_ID,

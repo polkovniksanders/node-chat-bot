@@ -1,4 +1,4 @@
-import { openrouterChat } from '@/news/openrouter-chat.js';
+import { openrouterChat } from '@/ai/openrouter.js';
 import { getUserContext, pushToContext } from '@/context/memory.js';
 import { CHAT_BOT_PROMPT } from '@/config/prompts.js';
 import { OpenRouterResponse } from '@/types';

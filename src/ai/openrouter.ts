@@ -1,13 +1,13 @@
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
-export async function openrouterChat(body: any) {
+export async function openrouterChat(body: unknown) {
   const res = await fetch(OPENROUTER_URL, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
       'Content-Type': 'application/json',
-      'HTTP-Referer': 'https://yourdomain.com',
-      'X-Title': 'Telegram AI Bot',
+      'HTTP-Referer': 'https://github.com/stepka-bot',
+      'X-Title': 'Stepka Telegram Bot',
     },
     body: JSON.stringify(body),
   });

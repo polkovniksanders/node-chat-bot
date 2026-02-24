@@ -1,4 +1,4 @@
-import { openrouterChat } from '@/news/openrouter-chat.js';
+import { openrouterChat } from '@/ai/openrouter.js';
 import { NEWS_GENERATION_PROMPT } from '@/config/prompts.js';
 
 import { OpenRouterResponse } from '@/types';

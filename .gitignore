@@ -121,6 +121,9 @@ dist
 
 .idea
 
+# Bot runtime data
+data/
+
 # TernJS port file
 .tern-port
 
