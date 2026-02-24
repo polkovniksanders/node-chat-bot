@@ -8,7 +8,7 @@ import {
   fetchHuggingFaceQwen,
   fetchHuggingFaceLlama,
   fetchHuggingFaceMistral,
-  fetchHuggingFacePhi,
+  fetchHuggingFaceGemma,
 } from '@/news/providers/huggingface.js';
 
 type AIProvider = {
@@ -22,7 +22,7 @@ const AI_PROVIDERS: AIProvider[] = [
   { name: 'HuggingFace (Qwen 2.5 72B)', fetch: fetchHuggingFaceQwen },
   { name: 'HuggingFace (Llama 3.3 70B)', fetch: fetchHuggingFaceLlama },
   { name: 'HuggingFace (Mistral Small 24B)', fetch: fetchHuggingFaceMistral },
-  { name: 'HuggingFace (Phi-4)', fetch: fetchHuggingFacePhi },
+  { name: 'HuggingFace (Gemma 3 27B)', fetch: fetchHuggingFaceGemma },
   { name: 'Groq (Llama 3.3 70B)', fetch: fetchGroq },
   { name: 'OpenRouter (DeepSeek)', fetch: fetchWithOpenRouter },
   { name: 'OpenAI (GPT-4o-mini)', fetch: fetchOpenAI },

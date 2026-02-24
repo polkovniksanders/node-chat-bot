@@ -1,6 +1,7 @@
 import { buildNewsDigestPrompt } from '@/config/prompts.js';
 import { formatDigest } from '@/news/formatter.js';
 import { fetchNews } from '@/news/fetch-news.js';
+import { generateNewsImage } from '@/news/image-generator.js';
 import {
   getRecentHistory,
   saveNewsEntry,
@@ -9,6 +10,7 @@ import {
 
 export async function getNewsDigestEmoji(): Promise<{
   text: string;
+  image: Buffer | null;
 }> {
   const history = await getRecentHistory();
   const params = generateRandomParams(history);
@@ -16,7 +18,8 @@ export async function getNewsDigestEmoji(): Promise<{
 
   console.log('📋 News params:', JSON.stringify(params));
 
-  const raw = await fetchNews(prompt);
+  // Текст и картинка генерируются параллельно — оба используют params
+  const [raw, image] = await Promise.all([fetchNews(prompt), generateNewsImage(params)]);
 
   const today = new Date().toLocaleDateString('ru-RU', {
     day: '2-digit',
@@ -26,5 +29,5 @@ export async function getNewsDigestEmoji(): Promise<{
 
   await saveNewsEntry({ date: today, news: params });
 
-  return formatDigest(raw);
+  return { ...formatDigest(raw), image };
 }

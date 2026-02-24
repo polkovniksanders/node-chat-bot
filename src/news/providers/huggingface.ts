@@ -20,10 +20,10 @@ function createHuggingFaceFetcher(model: string) {
   };
 }
 
-export const fetchHuggingFace = createHuggingFaceFetcher('unsloth/DeepSeek-OCR-2');
+export const fetchHuggingFace = createHuggingFaceFetcher('deepseek-ai/DeepSeek-R1');
 export const fetchHuggingFaceQwen = createHuggingFaceFetcher('Qwen/Qwen2.5-72B-Instruct');
 export const fetchHuggingFaceLlama = createHuggingFaceFetcher('meta-llama/Llama-3.3-70B-Instruct');
 export const fetchHuggingFaceMistral = createHuggingFaceFetcher(
   'mistralai/Mistral-Small-24B-Instruct-2501',
 );
-export const fetchHuggingFacePhi = createHuggingFaceFetcher('nvidia/personaplex-7b-v1');
+export const fetchHuggingFaceGemma = createHuggingFaceFetcher('google/gemma-3-27b-it');
