@@ -3,23 +3,22 @@ interface WikiEvent {
   year?: number;
 }
 
-async function fetchWiki(type: string, month: number, day: number): Promise<WikiEvent[]> {
-  const url = `https://en.wikipedia.org/api/rest_v1/feed/onthisday/${type}/${month}/${day}`;
-  const res = await fetch(url, { headers: { 'User-Agent': 'TelegramEventsBot/1.0' } });
-  if (!res.ok) return [];
-  const data = (await res.json()) as Record<string, WikiEvent[]>;
-  return data[type] ?? [];
+interface WikiResponse {
+  events: WikiEvent[];
+  births: WikiEvent[];
+  holidays: WikiEvent[];
 }
 
 export async function fetchRealEventsForDate(date: Date): Promise<string> {
-  const month = date.getMonth() + 1;
-  const day = date.getDate();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
 
-  const [selected, holidays, births] = await Promise.all([
-    fetchWiki('selected', month, day),
-    fetchWiki('holidays', month, day),
-    fetchWiki('births', month, day),
-  ]);
+  const url = `https://api.wikimedia.org/feed/v1/wikipedia/ru/onthisday/all/${month}/${day}`;
+  const res = await fetch(url, { headers: { 'User-Agent': 'TelegramEventsBot/1.0' } });
+
+  if (!res.ok) return '';
+
+  const data = (await res.json()) as WikiResponse;
 
   const dateStr = date.toLocaleDateString('ru-RU', {
     day: 'numeric',
@@ -29,24 +28,23 @@ export async function fetchRealEventsForDate(date: Date): Promise<string> {
 
   let text = `<b>📅 ${dateStr}</b>\n`;
 
-  if (holidays.length > 0) {
+  if (data.holidays?.length > 0) {
     text += `\n🎉 <b>Праздники:</b>\n`;
-    holidays.slice(0, 4).forEach((h) => {
+    data.holidays.slice(0, 4).forEach((h) => {
       text += `• ${h.text}\n`;
     });
   }
 
-  const events = selected.length ? selected : [];
-  if (events.length > 0) {
+  if (data.events?.length > 0) {
     text += `\n🏛 <b>В этот день в истории:</b>\n`;
-    events.slice(0, 5).forEach((e) => {
+    data.events.slice(0, 5).forEach((e) => {
       text += `• ${e.year ? `<b>${e.year}</b> — ` : ''}${e.text}\n`;
     });
   }
 
-  if (births.length > 0) {
-    text += `\n✨ <b>Интересно:</b>\n`;
-    births.slice(0, 2).forEach((b) => {
+  if (data.births?.length > 0) {
+    text += `\n✨ <b>Родились в этот день:</b>\n`;
+    data.births.slice(0, 2).forEach((b) => {
       text += `• ${b.year ? `${b.year} — ` : ''}${b.text}\n`;
     });
   }
