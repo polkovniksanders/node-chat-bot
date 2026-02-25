@@ -1,5 +1,5 @@
 const BASE_URL = 'https://gptunnel.ru/v1';
-const IMAGE_MODEL = 'nano-banana-1k';
+const IMAGE_MODEL = 'flux-pro-1.1-ultra';
 const POLL_INTERVAL_MS = 3_000;
 const POLL_TIMEOUT_MS = 120_000;
 

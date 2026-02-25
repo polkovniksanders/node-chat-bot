@@ -72,7 +72,8 @@ export function setupHandlers(botInstance: typeof bot) {
         parse_mode: 'HTML',
       });
     } catch (err) {
-      await ctx.reply(`❌ Не удалось сгенерировать изображение: ${err instanceof Error ? err.message : err}`);
+      const msg = err instanceof Error ? err.message : String(err);
+      await ctx.reply(`❌ Не удалось сгенерировать изображение: ${msg.slice(0, 200)}`);
     } finally {
       await bot.api.deleteMessage(ctx.chat.id, statusMsg.message_id).catch(() => {});
     }
