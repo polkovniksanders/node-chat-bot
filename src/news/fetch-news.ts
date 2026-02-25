@@ -2,6 +2,7 @@ import { fetchOpenAI } from '@/news/providers/openAI.js';
 import { fetchGemini } from '@/news/providers/gemini.js';
 import { fetchGroq } from '@/news/providers/groq.js';
 import { fetchWithOpenRouter } from '@/news/providers/openRouter.js';
+import { fetchGptunnel } from '@/news/providers/gptunnel.js';
 import { fetchAnthropic } from '@/news/providers/anthropic.js';
 import {
   fetchHuggingFace,
@@ -17,6 +18,7 @@ type AIProvider = {
 };
 
 const AI_PROVIDERS: AIProvider[] = [
+  { name: 'GPTunnel (gpt-4o-mini)', fetch: fetchGptunnel },
   { name: 'Anthropic (Claude Haiku)', fetch: fetchAnthropic },
   { name: 'HuggingFace (DeepSeek-R1)', fetch: fetchHuggingFace },
   { name: 'HuggingFace (Qwen 2.5 72B)', fetch: fetchHuggingFaceQwen },
