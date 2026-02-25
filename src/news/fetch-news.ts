@@ -29,13 +29,23 @@ const AI_PROVIDERS: AIProvider[] = [
   { name: 'Google Gemini', fetch: fetchGemini },
 ];
 
+// Убираем теги размышлений (<think>, <thinking>, <reasoning>) которые возвращают некоторые модели
+function stripThinkingTags(text: string): string {
+  return text
+    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+    .replace(/<thinking>[\s\S]*?<\/thinking>/gi, '')
+    .replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, '')
+    .trim();
+}
+
 export async function fetchNews(prompt: string): Promise<string> {
   for (const provider of AI_PROVIDERS) {
     try {
       console.log(`📡 Trying ${provider.name}...`);
-      const result = await provider.fetch(prompt);
+      const raw = await provider.fetch(prompt);
+      const result = stripThinkingTags(raw);
 
-      if (result && result.trim()) {
+      if (result) {
         console.log(`✅ Success with ${provider.name}`);
         return result;
       }
