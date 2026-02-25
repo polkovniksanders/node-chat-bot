@@ -1,9 +1,11 @@
-import { Context } from 'grammy';
+import { Context, InputFile } from 'grammy';
 import { bot } from '@/botInstance.js';
 import { generateReply } from '@/ai/generateReply.js';
 import { getDailyEvents } from '@/events/events.js';
 import { fetchWeather } from '@/weather/fetch-weather.js';
 import { formatWeather } from '@/weather/formatter.js';
+import { generateImage } from '@/generate/generate-image.js';
+import { checkRateLimit, recordGeneration, formatRemaining } from '@/generate/rate-limiter.js';
 
 const DEFAULT_CITY = 'Челябинск';
 
@@ -42,6 +44,38 @@ export function setupHandlers(botInstance: typeof bot) {
   botInstance.command('weather', async (ctx) => {
     const city = ctx.match.trim() || DEFAULT_CITY;
     await sendWeather(ctx, city);
+  });
+
+  // /generate <промпт> — генерация изображения, 1 раз в час на пользователя
+  botInstance.command('generate', async (ctx) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    const prompt = ctx.match.trim();
+    if (!prompt) {
+      await ctx.reply('📝 Укажи промпт после команды.\nПример: /generate sunset over mountains, digital art');
+      return;
+    }
+
+    const { allowed, remainingMs } = checkRateLimit(userId);
+    if (!allowed) {
+      await ctx.reply(`⏳ Ты уже генерировал картинку. Следующая будет доступна через ${formatRemaining(remainingMs)}.`);
+      return;
+    }
+
+    const statusMsg = await ctx.reply('🎨 Генерирую изображение...');
+    try {
+      const imageBuffer = await generateImage(prompt);
+      recordGeneration(userId);
+      await ctx.replyWithPhoto(new InputFile(imageBuffer, 'image.png'), {
+        caption: `🖼 <b>${prompt}</b>`,
+        parse_mode: 'HTML',
+      });
+    } catch (err) {
+      await ctx.reply(`❌ Не удалось сгенерировать изображение: ${err instanceof Error ? err.message : err}`);
+    } finally {
+      await bot.api.deleteMessage(ctx.chat.id, statusMsg.message_id).catch(() => {});
+    }
   });
 
   // Текстовые сообщения — только в личке
