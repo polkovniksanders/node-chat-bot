@@ -1,9 +1,11 @@
 // Sources:
 // 1. OpenHolidays API   — official public holidays by country (free, no auth)
 // 2. isdayoff.ru        — check if today is a day off in Russia (free, no auth)
-// 3. Wikimedia On This Day (ru) — historical events, births, holidays (free, no auth)
-// 4. byabbe.se On This Day    — Day in History fallback (free, no auth)
-// 5. uselessfacts.jsph.pl     — Facts API, fact of the day (free, no auth)
+// 3. calend.ru          — Russian memorable dates & holidays (scraping, no auth)
+//    ↳ fallback: Wikimedia On This Day (ru) holidays
+// 4. Wikimedia On This Day (ru) — historical events, births (free, no auth)
+// 5. byabbe.se On This Day    — Day in History fallback (free, no auth)
+// 6. uselessfacts.jsph.pl     — Facts API, fact of the day (free, no auth)
 //    ↳ translated to Russian via GPTunnel
 
 interface OpenHoliday {
@@ -85,6 +87,51 @@ async function fetchWikiEvents(date: Date): Promise<WikiResponse | null> {
   }
 }
 
+// Russian-focused categories to include from calend.ru
+const RUSSIAN_CATEGORIES = ['России', 'Православн', 'воинской', 'Народн', 'Патриот'];
+
+async function fetchCalendRuHolidays(date: Date): Promise<string[]> {
+  try {
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    const url = `https://www.calend.ru/day/${month}-${day}/`;
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; TelegramBot/1.0)',
+        'Accept-Language': 'ru-RU,ru;q=0.9',
+      },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return [];
+    const html = await res.text();
+
+    const results: string[] = [];
+    const liPattern = /<li>([\s\S]*?)<\/li>/g;
+    let liMatch;
+
+    while ((liMatch = liPattern.exec(html)) !== null) {
+      const liContent = liMatch[1];
+      const linkMatch = /<a\s+href="[^"]*\/holidays\/[^"]*">\s*([\s\S]*?)\s*<\/a>/.exec(liContent);
+      const imgMatch = /<img[^>]+alt="([^"]+)"/.exec(liContent);
+
+      if (linkMatch && imgMatch) {
+        const name = linkMatch[1].trim();
+        const category = imgMatch[1].trim();
+        if (
+          RUSSIAN_CATEGORIES.some((kw) => category.includes(kw)) &&
+          name.length > 3
+        ) {
+          results.push(name);
+        }
+      }
+    }
+
+    return results.slice(0, 5);
+  } catch {
+    return [];
+  }
+}
+
 async function fetchDayInHistory(date: Date): Promise<ByabbeResponse | null> {
   try {
     const month = date.getMonth() + 1;
@@ -130,13 +177,14 @@ async function translateFact(text: string): Promise<string> {
 }
 
 export async function fetchRealEventsForDate(date: Date): Promise<string> {
-  const [holidaysResult, isDayOffResult, wikiResult, historyResult, factResult] =
+  const [holidaysResult, isDayOffResult, wikiResult, historyResult, factResult, calendResult] =
     await Promise.allSettled([
       fetchOpenHolidays(date),
       checkIsDayOff(date),
       fetchWikiEvents(date),
       fetchDayInHistory(date),
       fetchFact(),
+      fetchCalendRuHolidays(date),
     ]);
 
   const dateStr = date.toLocaleDateString('ru-RU', {
@@ -162,46 +210,45 @@ export async function fetchRealEventsForDate(date: Date): Promise<string> {
 
   const wiki = wikiResult.status === 'fulfilled' ? wikiResult.value : null;
   const history = historyResult.status === 'fulfilled' ? historyResult.value : null;
+  const calendHolidays = calendResult.status === 'fulfilled' ? calendResult.value : [];
 
-  if (wiki) {
-    // Professional / awareness holidays from Wikimedia
-    if (wiki.holidays?.length > 0) {
-      text += `\n🌟 <b>Памятные даты:</b>\n`;
-      wiki.holidays.slice(0, 4).forEach((h) => {
-        text += `• ${h.text}\n`;
-      });
-    }
+  // Memorable dates — calend.ru (primary) with Wikimedia holidays as fallback
+  if (calendHolidays.length > 0) {
+    text += `\n🌟 <b>Памятные даты:</b>\n`;
+    calendHolidays.forEach((h) => {
+      text += `• ${h}\n`;
+    });
+  } else if (wiki && wiki.holidays && wiki.holidays.length > 0) {
+    text += `\n🌟 <b>Памятные даты:</b>\n`;
+    wiki.holidays.slice(0, 4).forEach((h) => {
+      text += `• ${h.text}\n`;
+    });
+  }
 
-    // Historical events (Wikimedia, Russian)
-    if (wiki.events?.length > 0) {
-      text += `\n🏛 <b>В этот день в истории:</b>\n`;
-      wiki.events.slice(0, 5).forEach((e) => {
-        text += `• ${e.year ? `<b>${e.year}</b> — ` : ''}${e.text}\n`;
-      });
-    }
+  // Historical events — Wikimedia (primary) with byabbe.se fallback
+  if (wiki && wiki.events && wiki.events.length > 0) {
+    text += `\n🏛 <b>В этот день в истории:</b>\n`;
+    wiki.events.slice(0, 5).forEach((e) => {
+      text += `• ${e.year ? `<b>${e.year}</b> — ` : ''}${e.text}\n`;
+    });
+  } else if (history && history.events && history.events.length > 0) {
+    text += `\n🏛 <b>В этот день в истории:</b>\n`;
+    history.events.slice(0, 5).forEach((e) => {
+      text += `• ${e.year ? `<b>${e.year}</b> — ` : ''}${e.description}\n`;
+    });
+  }
 
-    // Notable births (Wikimedia)
-    if (wiki.births?.length > 0) {
-      text += `\n✨ <b>Родились в этот день:</b>\n`;
-      wiki.births.slice(0, 3).forEach((b) => {
-        text += `• ${b.year ? `${b.year} — ` : ''}${b.text}\n`;
-      });
-    }
-  } else if (history) {
-    // Fallback: Day in History (byabbe.se) if Wikimedia is unavailable
-    if (history.events?.length > 0) {
-      text += `\n🏛 <b>В этот день в истории:</b>\n`;
-      history.events.slice(0, 5).forEach((e) => {
-        text += `• ${e.year ? `<b>${e.year}</b> — ` : ''}${e.description}\n`;
-      });
-    }
-
-    if (history.births?.length > 0) {
-      text += `\n✨ <b>Родились в этот день:</b>\n`;
-      history.births.slice(0, 3).forEach((b) => {
-        text += `• ${b.year ? `${b.year} — ` : ''}${b.description}\n`;
-      });
-    }
+  // Notable births — Wikimedia (primary) with byabbe.se fallback
+  if (wiki && wiki.births && wiki.births.length > 0) {
+    text += `\n✨ <b>Родились в этот день:</b>\n`;
+    wiki.births.slice(0, 3).forEach((b) => {
+      text += `• ${b.year ? `${b.year} — ` : ''}${b.text}\n`;
+    });
+  } else if (history && history.births && history.births.length > 0) {
+    text += `\n✨ <b>Родились в этот день:</b>\n`;
+    history.births.slice(0, 3).forEach((b) => {
+      text += `• ${b.year ? `${b.year} — ` : ''}${b.description}\n`;
+    });
   }
 
   // Fact of the day (Facts API)

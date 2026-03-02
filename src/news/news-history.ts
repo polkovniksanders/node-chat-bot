@@ -10,6 +10,7 @@ export type NewsParams = {
   time: string;
   event: string;
   emotion: string;
+  tone: string;
 };
 
 export type HistoryEntry = {
@@ -32,9 +33,13 @@ const LOCATIONS = [
   'у миски',
   'у когтеточки',
   'прихожая',
+  'под кроватью',
+  'на холодильнике',
+  'в шкафу',
+  'у батареи',
 ];
 
-const TIMES = ['утром', 'днём', 'вечером', 'ночью'];
+const TIMES = ['утром', 'днём', 'вечером', 'ночью', 'на рассвете', 'в сумерках'];
 
 const EVENTS = [
   'миска с кормом',
@@ -55,6 +60,18 @@ const EVENTS = [
   'зонтик у двери',
   'запах еды',
   'звонок в дверь',
+  'новая подушка',
+  'лазерная указка',
+  'тунец закончился',
+  'уборка в квартире',
+  'мамочка включила фен',
+  'посылка с Озона',
+  'воробей за окном',
+  'зеркало в прихожей',
+  'мамочка ушла надолго',
+  'упала кружка со стола',
+  'непонятный шорох ночью',
+  'новый ковёр',
 ];
 
 const EMOTIONS = [
@@ -67,6 +84,23 @@ const EMOTIONS = [
   'снисхождение',
   'ревность',
   'голод',
+  'торжество',
+  'философская грусть',
+  'притворное равнодушие',
+  'паника',
+];
+
+const TONES = [
+  'официальный репортаж',
+  'срочно в эфире',
+  'светская хроника',
+  'псевдонаучный анализ',
+  'жалоба в управдом',
+  'лирическое отступление',
+  'советская газета',
+  'детективная история',
+  'кулинарный обзор',
+  'спортивный комментарий',
 ];
 
 function pickRandom<T>(arr: T[], exclude: T[] = []): T {
@@ -76,22 +110,24 @@ function pickRandom<T>(arr: T[], exclude: T[] = []): T {
 }
 
 export function generateRandomParams(history: HistoryEntry[]): NewsParams {
-  // Collect recently used values to de-prioritize them
   const recentLocations = history.slice(-7).map((e) => e.news.location);
   const recentEvents = history.slice(-7).map((e) => e.news.event);
+  const recentTones = history.slice(-3).map((e) => e.news.tone);
 
   const freshLocations = LOCATIONS.filter((l) => !recentLocations.includes(l));
   const freshEvents = EVENTS.filter((e) => !recentEvents.includes(e));
+  const freshTones = TONES.filter((t) => !recentTones.includes(t));
 
-  // Prefer fresh values; fall back to full pool if pool is exhausted
   const locPool = freshLocations.length >= 1 ? freshLocations : LOCATIONS;
   const eventPool = freshEvents.length >= 1 ? freshEvents : EVENTS;
+  const tonePool = freshTones.length >= 1 ? freshTones : TONES;
 
   return {
     location: pickRandom(locPool),
     time: pickRandom(TIMES),
     event: pickRandom(eventPool),
     emotion: pickRandom(EMOTIONS),
+    tone: pickRandom(tonePool),
   };
 }
 
