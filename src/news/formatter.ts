@@ -27,6 +27,7 @@ export function formatDigest(content: string) {
 
 ${body}
 
+#котовости #новости #степка
 <a href="https://t.me/stepka_and_twitty">⭐ Подписаться</a>
 `,
   };

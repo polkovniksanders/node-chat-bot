@@ -13,7 +13,8 @@
     "start": "NODE_ENV=production node --enable-source-maps dist/index.js",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "test-cycle": "tsx src/test-cycle.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

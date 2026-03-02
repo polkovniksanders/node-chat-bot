@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { bot } from '@/botInstance.js';
 import { setupHandlers } from '@/bot/handlers.js';
-import { setupDailyNewsCron } from '@/cron/dailyNews.js';
+import { setupDailyCycleCron } from '@/cron/dailyCycle.js';
 import { setupDailyEventsCron } from '@/cron/dailyEvents.js';
 
 if (!process.env.TELEGRAM_TOKEN) {
@@ -14,7 +14,7 @@ if (!process.env.EVENTS_CHANNEL_ID) {
 }
 
 setupHandlers(bot);
-setupDailyNewsCron();
+setupDailyCycleCron();
 
 if (process.env.EVENTS_CHANNEL_ID) {
   setupDailyEventsCron();
