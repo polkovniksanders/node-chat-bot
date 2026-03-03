@@ -3,8 +3,8 @@ import { InputFile } from 'grammy';
 import { bot } from '@/botInstance.js';
 import { getNewsDigestEmoji } from '@/news/news.js';
 import { consumeCurrentDay } from '@/content/cycleState.js';
-import { ANIMAL_MOVIES, formatMoviePost } from '@/content/animalMovies.js';
-import { YOUTUBE_VIDEOS, formatVideoPost } from '@/content/youtubeVideos.js';
+import { getAnimalMoviePost } from '@/content/animalMovies.js';
+import { getYoutubeVideoPost } from '@/content/youtubeVideos.js';
 import { generatePetNamesPost } from '@/content/petNames.js';
 import { generateAnimalStoryPost } from '@/content/animalStory.js';
 
@@ -32,17 +32,14 @@ async function runDayOne() {
   await sendPost(digest.text, digest.image);
 }
 
-async function runDayTwo(movieIndex: number) {
-  const movie = ANIMAL_MOVIES[movieIndex % ANIMAL_MOVIES.length];
-  const text = formatMoviePost(movie);
+async function runDayTwo() {
+  const text = await getAnimalMoviePost();
   await sendPost(text);
 }
 
-async function runDayThree(videoIndex: number) {
-  const video = YOUTUBE_VIDEOS[videoIndex % YOUTUBE_VIDEOS.length];
-  const text = formatVideoPost(video);
-  // Для YouTube-видео отключаем превью ссылки на канал, чтобы показывалось превью видео.
-  // parse_mode: HTML + URL в тексте — Telegram сам подтянет превью первого YouTube-линка.
+async function runDayThree() {
+  const text = await getYoutubeVideoPost();
+  // URL in text → Telegram auto-shows YouTube preview
   await bot.api.sendMessage(CHANNEL_ID, text, { parse_mode: 'HTML' });
   await bot.api.sendMessage(TEST_CHANNEL, text, { parse_mode: 'HTML' });
 }
@@ -62,10 +59,7 @@ export function setupDailyCycleCron() {
   cron.schedule(
     '0 11 * * *',
     async () => {
-      const { day, movieIndex, videoIndex } = await consumeCurrentDay(
-        ANIMAL_MOVIES.length,
-        YOUTUBE_VIDEOS.length,
-      );
+      const { day } = await consumeCurrentDay();
 
       console.log(`📅 Daily cycle — день ${day}`);
 
@@ -75,10 +69,10 @@ export function setupDailyCycleCron() {
             await runDayOne();
             break;
           case 2:
-            await runDayTwo(movieIndex);
+            await runDayTwo();
             break;
           case 3:
-            await runDayThree(videoIndex);
+            await runDayThree();
             break;
           case 4:
             await runDayFour();

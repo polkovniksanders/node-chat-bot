@@ -7,8 +7,8 @@ import 'dotenv/config';
 import { InputFile } from 'grammy';
 import { bot } from '@/botInstance.js';
 import { getNewsDigestEmoji } from '@/news/news.js';
-import { ANIMAL_MOVIES, formatMoviePost } from '@/content/animalMovies.js';
-import { YOUTUBE_VIDEOS, formatVideoPost } from '@/content/youtubeVideos.js';
+import { getAnimalMoviePost } from '@/content/animalMovies.js';
+import { getYoutubeVideoPost } from '@/content/youtubeVideos.js';
 import { generatePetNamesPost } from '@/content/petNames.js';
 import { generateAnimalStoryPost } from '@/content/animalStory.js';
 
@@ -53,13 +53,13 @@ async function main() {
   });
 
   await runTest('День 2 — Фильм про животных', async () => {
-    const movie = ANIMAL_MOVIES[0];
-    await send(formatMoviePost(movie));
+    const text = await getAnimalMoviePost();
+    await send(text);
   });
 
   await runTest('День 3 — YouTube видео', async () => {
-    const video = YOUTUBE_VIDEOS[0];
-    await bot.api.sendMessage(TEST_CHANNEL, formatVideoPost(video), { parse_mode: 'HTML' });
+    const text = await getYoutubeVideoPost();
+    await bot.api.sendMessage(TEST_CHANNEL, text, { parse_mode: 'HTML' });
   });
 
   await runTest('День 4 — AI: Клички', async () => {

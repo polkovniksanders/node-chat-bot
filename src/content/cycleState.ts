@@ -6,11 +6,9 @@ const STATE_FILE = path.join(process.cwd(), 'data', 'cycle-state.json');
 
 interface CycleState {
   day: number; // 1–5
-  movieIndex: number;
-  videoIndex: number;
 }
 
-const DEFAULT_STATE: CycleState = { day: 1, movieIndex: 0, videoIndex: 0 };
+const DEFAULT_STATE: CycleState = { day: 1 };
 
 async function readState(): Promise<CycleState> {
   try {
@@ -30,19 +28,13 @@ async function writeState(state: CycleState): Promise<void> {
 }
 
 /**
- * Возвращает текущий день цикла + индексы, затем сдвигает состояние вперёд.
+ * Returns the current cycle day, then advances to the next.
+ * Movie and video history are tracked separately in data/movie-history.json
+ * and data/video-history.json.
  */
-export async function consumeCurrentDay(
-  movieListLength: number,
-  videoListLength: number,
-): Promise<{ day: number; movieIndex: number; videoIndex: number }> {
+export async function consumeCurrentDay(): Promise<{ day: number }> {
   const state = await readState();
-  const { day, movieIndex, videoIndex } = state;
-
-  const nextDay = (day % 5) + 1;
-  const nextMovieIndex = day === 2 ? (movieIndex + 1) % movieListLength : movieIndex;
-  const nextVideoIndex = day === 3 ? (videoIndex + 1) % videoListLength : videoIndex;
-
-  await writeState({ day: nextDay, movieIndex: nextMovieIndex, videoIndex: nextVideoIndex });
-  return { day, movieIndex, videoIndex };
+  const { day } = state;
+  await writeState({ day: (day % 5) + 1 });
+  return { day };
 }

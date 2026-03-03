@@ -1,3 +1,11 @@
+// Dynamic animal movie source:
+// Primary:  TMDB API (themoviedb.org) — needs TMDB_API_KEY in .env
+//           History tracked in data/movie-history.json to avoid repeats (~400 movies before cycling)
+// Fallback: AI (GPTunnel) generates a post about a real animal movie
+
+import { readFile, writeFile, mkdir } from 'fs/promises';
+import path from 'path';
+
 export interface AnimalMovie {
   title: string;
   year: number;
@@ -6,224 +14,215 @@ export interface AnimalMovie {
   stepkaComment?: string;
 }
 
-export const ANIMAL_MOVIES: AnimalMovie[] = [
-  {
-    title: 'Хатико: Самый верный друг',
-    year: 2009,
-    country: 'США / Япония',
-    description:
-      'Трогательная история об аките Хатико — преданном псе, который 9 лет каждый день приходил на вокзал встречать своего хозяина. Основан на реальных событиях.',
-    stepkaComment: 'Мурр... Я бы тоже ждал мамулю. Правда, только до ужина.',
-  },
-  {
-    title: 'Марли и я',
-    year: 2008,
-    country: 'США',
-    description:
-      'История о золотистом лабрадоре Марли — самой непослушной собаке в мире, которая перевернула жизнь своей семьи с ног на голову, но навсегда осталась в их сердцах.',
-    stepkaComment:
-      'Хаос и беспорядок? Это точно про собаку. Мы, коты, куда более... благородны.',
-  },
-  {
-    title: 'Белый Бим Чёрное Ухо',
-    year: 1977,
-    country: 'СССР',
-    description:
-      'Советская драма о судьбе охотничьей собаки Бима, разлучённой с хозяином. Один из самых трогательных фильмов о верности и людской жестокости.',
-    stepkaComment: 'Фырк... Смотреть без слёз невозможно. Даже у кота сердце сжимается.',
-  },
-  {
-    title: 'Бэйб: Четвероногий малыш',
-    year: 1995,
-    country: 'Австралия',
-    description:
-      'Поросёнок Бэйб вырос на ферме и мечтает стать пастушьей собакой. Добрая сказка для всей семьи, ставшая классикой мирового кино.',
-    stepkaComment:
-      'Поросёнок пасёт овец? Хм, а я вот мышей не гоняю — только слежу за ними философски.',
-  },
-  {
-    title: 'Медведь',
-    year: 1988,
-    country: 'Франция',
-    description:
-      'Великий французский фильм о маленьком медвежонке, потерявшем мать, и огромном медведе, который стал ему другом. Почти без слов — но невероятно выразительный.',
-    stepkaComment:
-      'Настоящее кино — без лишних слов. Мы, животные, понимаем друг друга и так.',
-  },
-  {
-    title: 'Освободите Вилли',
-    year: 1993,
-    country: 'США',
-    description:
-      'Дружба мальчика и косатки Вилли, томящейся в неволе. Трогательная история об освобождении, дружбе и силе духа.',
-    stepkaComment:
-      'Освобождение — это важно. Меня вот никто не освободит от соседства с Твитти... грустно.',
-  },
-  {
-    title: 'Восемь ниже',
-    year: 2006,
-    country: 'США',
-    description:
-      'Восемь хаски брошены в Антарктиде во время шторма. Невероятная история выживания и верности, основанная на реальных событиях.',
-    stepkaComment: 'Восемь собак выживают на морозе — я бы не выжил и на балконе в -5. Уважаю.',
-  },
-  {
-    title: 'Горилла в тумане',
-    year: 1988,
-    country: 'США',
-    description:
-      'Биография Дайан Фосси — женщины, посвятившей жизнь изучению горных горилл и их защите в Руанде. Оскаровский фильм с Сигурни Уивер.',
-    stepkaComment:
-      'Горные гориллы... Я живу на 16 этаже, так что "горные виды" мне тоже знакомы.',
-  },
-  {
-    title: 'Бетховен',
-    year: 1992,
-    country: 'США',
-    description:
-      'Огромный сенбернар Бетховен ломает всё вокруг, пускает слюни и обожает детей. Семейная комедия, ставшая культом 90-х.',
-    stepkaComment:
-      'Назвать собаку в честь великого композитора... Какое неуважение к искусству.',
-  },
-  {
-    title: 'Военный конь',
-    year: 2011,
-    country: 'США / Великобритания',
-    description:
-      'Стивен Спилберг рассказывает о коне Джоуи, прошедшем через Первую мировую войну. Эпический фильм о дружбе, преданности и войне.',
-    stepkaComment:
-      'Конь на войне... Мне на подоконнике и то порой тяжело — особенно когда дует из форточки.',
-  },
-  {
-    title: 'Паддингтон',
-    year: 2014,
-    country: 'Великобритания',
-    description:
-      'Медвежонок из Перу приезжает в Лондон и попадает в семью Браунов. Добрейший фильм о принятии, доброте и марокканских бутербродах.',
-    stepkaComment:
-      'Медведь в Лондоне. Я в Челябинске. У нас разный уровень приключений, но уют одинаковый.',
-  },
-  {
-    title: 'Невероятное путешествие',
-    year: 1963,
-    country: 'США',
-    description:
-      'Два пса и кошка преодолевают сотни миль дикой природы Канады, чтобы вернуться домой к своим хозяевам. Классика Диснея, основанная на книге.',
-    stepkaComment:
-      'Сотни миль! Я и до кухни иду только если там что-то вкусно пахнет.',
-  },
-  {
-    title: 'Беглецы',
-    year: 1993,
-    country: 'США',
-    description:
-      'Лабрадор Шэдоу, бультерьер Чэнс и кошка Сасси ищут дорогу домой через дикую природу Сьерра-Невады. Лёгкий и трогательный семейный фильм.',
-    stepkaComment:
-      'Кошка путешествует с собаками? Вынуждена — понимаю. Я бы уже на второй день потребовал такси.',
-  },
-  {
-    title: 'Рождённая свободной',
-    year: 1966,
-    country: 'Великобритания',
-    description:
-      'История Элзы — львицы, воспитанной супругами Адамсон в Кении и возвращённой в дикую природу. Классика мирового кино о любви к животным и свободе.',
-    stepkaComment:
-      'Вырастить львицу и отпустить... Мамуля меня тоже "отпускает" — в соседнюю комнату.',
-  },
-  {
-    title: 'Марш пингвинов',
-    year: 2005,
-    country: 'Франция',
-    description:
-      'Удивительный документальный фильм о ежегодном путешествии императорских пингвинов через Антарктиду. Получил «Оскар» за лучший документальный фильм.',
-    stepkaComment:
-      'Марш пингвинов через Антарктиду... Я и до миски с кормом хожу с таким же торжественным видом.',
-  },
-  {
-    title: 'Белый клык',
-    year: 1991,
-    country: 'США / Канада',
-    description:
-      'Экранизация классического романа Джека Лондона о волко-собаке Белом Клыке, выросшем на Аляске. Захватывающая история выживания и преданности.',
-    stepkaComment: 'Аляска, снег, волки... Я предпочитаю батарею на кухне и тунца. Каждому — своё.',
-  },
-  {
-    title: 'Флиппер',
-    year: 1963,
-    country: 'США',
-    description:
-      'Мальчик Сэнди и дельфин Флиппер становятся лучшими друзьями. Добрый семейный фильм, вдохновивший несколько сиквелов и знаменитый телесериал.',
-    stepkaComment:
-      'Дельфин умнее всех в море. Я умнее всех в квартире. Мы бы нашли общий язык.',
-  },
-  {
-    title: 'Кинг-Конг',
-    year: 2005,
-    country: 'США',
-    description:
-      'Питер Джексон переснял легендарную классику: гигантская горилла Конг и актриса Энн Дэрроу — история трагической дружбы на фоне Нью-Йорка 1930-х годов.',
-    stepkaComment:
-      'Огромный примат в Нью-Йорке. Я — маленький кот в Челябинске. Но в окно смотрим оба с одинаковым выражением.',
-  },
-  {
-    title: 'Мустанг',
-    year: 2019,
-    country: 'США',
-    description:
-      'В тюрьме заключённый обучает диких лошадей мустангов для армии США. История о второй попытке, свободе и взаимном спасении человека и животного.',
-    stepkaComment:
-      'Дикий мустанг и человек помогают друг другу. Мамуля и я тоже — она кормит меня, я позволяю ей себя гладить.',
-  },
-  {
-    title: 'Флинт',
-    year: 2013,
-    country: 'Россия',
-    description:
-      'Российский фильм о бездомном псе Флинте, нашедшем свою семью. История о том, что каждое животное заслуживает любви и настоящего дома.',
-    stepkaComment:
-      'Бездомный пёс нашёл дом. Хорошо, что есть добрые люди. Мамуля меня тоже нашла — и не пожалела.',
-  },
-  {
-    title: 'Хатико (оригинал)',
-    year: 1987,
-    country: 'Япония',
-    description:
-      'Оригинальный японский фильм об аките Хатико, снятый за 22 года до американского ремейка. Более строгий и сдержанный — но от этого ещё более пронзительный.',
-    stepkaComment:
-      'Оригинал всегда лучше ремейка. Я это знаю как настоящий ценитель классики.',
-  },
-  {
-    title: 'Чёрная красавица',
-    year: 1994,
-    country: 'Великобритания / США',
-    description:
-      'Экранизация классического романа Анны Сьюэлл о вороной лошади Красавице, рассказывающей о своей непростой жизни от первого лица.',
-    stepkaComment:
-      'Лошадь рассказывает свою историю. Я тоже мог бы написать мемуары. Рабочее название: "16 этаж и тунец".',
-  },
-  {
-    title: 'Лесси возвращается',
-    year: 1943,
-    country: 'США',
-    description:
-      'Первый фильм о легендарном колли Лесси, путешествующем через всю Шотландию, чтобы вернуться к своему мальчику. Начало одной из величайших кинофраншиз.',
-    stepkaComment:
-      'Колли прошёл всю Шотландию ради хозяина. Я бы дошёл до холодильника. Это тоже подвиг.',
-  },
-];
+// TMDB animal-related keyword IDs joined with | (OR logic)
+// 9799=animals, 1697=dog, 14158=cat, 2641=horse, 4290=bear
+const ANIMAL_KEYWORDS = '9799|1697|14158|2641|4290';
+const MAX_PAGES = 20;       // pages 1–20, ~20 movies each → ~400 unique movies
+const MAX_HISTORY = 350;    // remember last 350 IDs before cycling
+
+const HISTORY_FILE = path.join(process.cwd(), 'data', 'movie-history.json');
+
+// TMDB English country name → Russian
+const COUNTRY_RU: Record<string, string> = {
+  'United States of America': 'США',
+  'United Kingdom': 'Великобритания',
+  'France': 'Франция',
+  'Germany': 'Германия',
+  'Australia': 'Австралия',
+  'Japan': 'Япония',
+  'Italy': 'Италия',
+  'Canada': 'Канада',
+  'Spain': 'Испания',
+  'Russia': 'Россия',
+  'Soviet Union': 'СССР',
+  'China': 'Китай',
+  'India': 'Индия',
+  'New Zealand': 'Новая Зеландия',
+  'South Africa': 'ЮАР',
+  'Brazil': 'Бразилия',
+  'Mexico': 'Мексика',
+  'Argentina': 'Аргентина',
+  'Sweden': 'Швеция',
+  'Norway': 'Норвегия',
+  'Denmark': 'Дания',
+  'Netherlands': 'Нидерланды',
+  'Belgium': 'Бельгия',
+  'Switzerland': 'Швейцария',
+  'Austria': 'Австрия',
+  'Poland': 'Польша',
+  'Czech Republic': 'Чехия',
+  'Ireland': 'Ирландия',
+  'South Korea': 'Южная Корея',
+  'Hong Kong': 'Гонконг',
+  'Taiwan': 'Тайвань',
+  'Thailand': 'Таиланд',
+  'Indonesia': 'Индонезия',
+  'Finland': 'Финляндия',
+  'Portugal': 'Португалия',
+  'Turkey': 'Турция',
+};
+
+// ─── History helpers ──────────────────────────────────────────────────────────
+
+async function loadHistory(): Promise<number[]> {
+  try {
+    return JSON.parse(await readFile(HISTORY_FILE, 'utf-8')) as number[];
+  } catch {
+    return [];
+  }
+}
+
+async function saveHistory(ids: number[]): Promise<void> {
+  await mkdir(path.dirname(HISTORY_FILE), { recursive: true });
+  await writeFile(HISTORY_FILE, JSON.stringify(ids.slice(-MAX_HISTORY)), 'utf-8');
+}
+
+// ─── AI helpers ───────────────────────────────────────────────────────────────
+
+async function generateStepkaComment(title: string, description: string): Promise<string> {
+  const { gptunnelChat } = await import('@/ai/gptunnel.js');
+  const result = await gptunnelChat([
+    {
+      role: 'system',
+      content:
+        'Ты — кот Стёпка: чёрный с белыми лапками, живёшь на 16 этаже в Челябинске. ' +
+        'Ленивый, ироничный, любишь тунец и мамулю, не переносишь попугая Твитти. ' +
+        'Напиши 1-2 предложения — саркастичный или трогательный комментарий к фильму от кота. ' +
+        'Можно упомянуть мамулю, тунец, Твитти или 16 этаж. Только текст, без кавычек и подписи.',
+    },
+    { role: 'user', content: `Фильм: ${title}\n${description}` },
+  ]);
+  return result.trim();
+}
+
+// ─── TMDB source ──────────────────────────────────────────────────────────────
+
+async function fetchFromTmdb(): Promise<AnimalMovie | null> {
+  const apiKey = process.env.TMDB_API_KEY;
+  if (!apiKey) return null;
+
+  const history = await loadHistory();
+
+  // Shuffle pages and try up to 6 of them to find an unseen movie
+  const pages = Array.from({ length: MAX_PAGES }, (_, i) => i + 1).sort(() => Math.random() - 0.5);
+
+  for (const page of pages.slice(0, 6)) {
+    try {
+      const discoverUrl =
+        `https://api.themoviedb.org/3/discover/movie` +
+        `?api_key=${apiKey}` +
+        `&with_keywords=${ANIMAL_KEYWORDS}` +
+        `&language=ru-RU` +
+        `&sort_by=vote_count.desc` +
+        `&vote_count.gte=100` +
+        `&page=${page}`;
+
+      const res = await fetch(discoverUrl, { signal: AbortSignal.timeout(8000) });
+      if (!res.ok) continue;
+
+      const data = (await res.json()) as { results: any[] };
+      const candidates = data.results.filter(
+        (m: any) => !history.includes(m.id) && m.overview?.trim() && m.title,
+      );
+      if (!candidates.length) continue;
+
+      const picked = candidates[Math.floor(Math.random() * candidates.length)];
+      const year = parseInt(picked.release_date?.split('-')[0] ?? '0');
+
+      // Fetch movie details (for country) + Stepka's comment in parallel
+      const [detailsResult, commentResult] = await Promise.allSettled([
+        fetch(
+          `https://api.themoviedb.org/3/movie/${picked.id}?api_key=${apiKey}&language=ru-RU`,
+          { signal: AbortSignal.timeout(6000) },
+        ).then((r) => (r.ok ? (r.json() as Promise<any>) : null)),
+        generateStepkaComment(picked.title, picked.overview),
+      ]);
+
+      let country = 'Неизвестно';
+      if (detailsResult.status === 'fulfilled' && detailsResult.value) {
+        const countries: string[] = (detailsResult.value.production_countries ?? [])
+          .slice(0, 2)
+          .map((c: any) => COUNTRY_RU[c.name] ?? c.name);
+        if (countries.length) country = countries.join(' / ');
+      }
+
+      await saveHistory([...history, picked.id]);
+      console.log(`🎬 TMDB movie: "${picked.title}" (${year}) — page ${page}`);
+
+      return {
+        title: picked.title,
+        year,
+        country,
+        description: picked.overview,
+        stepkaComment: commentResult.status === 'fulfilled' ? commentResult.value : undefined,
+      };
+    } catch (err) {
+      console.warn(`⚠️ TMDB page ${page} failed:`, err);
+      continue;
+    }
+  }
+
+  // All tried pages were exhausted → reset history and signal retry
+  console.warn('⚠️ Movie history is full, resetting for next run');
+  await saveHistory([]);
+  return null;
+}
+
+// ─── AI fallback source ───────────────────────────────────────────────────────
+
+async function fetchFromAI(): Promise<AnimalMovie | null> {
+  try {
+    const { gptunnelChat } = await import('@/ai/gptunnel.js');
+    const raw = await gptunnelChat([
+      {
+        role: 'system',
+        content:
+          'Ты — кот Стёпка (ироничный, ленивый, живёт в Челябинске на 16 этаже, любит тунец и мамулю). ' +
+          'Выбери РЕАЛЬНО СУЩЕСТВУЮЩИЙ известный фильм про животных. ' +
+          'Верни строго JSON без markdown-блоков:\n' +
+          '{"title":"название фильма","year":2009,"country":"США","description":"2-3 предложения описания на русском","stepkaComment":"ироничный комментарий кота 1-2 предложения"}',
+      },
+      { role: 'user', content: 'Фильм про животных!' },
+    ]);
+    const cleaned = raw.trim().replace(/^```[a-z]*\n?/m, '').replace(/```$/m, '').trim();
+    const parsed = JSON.parse(cleaned) as AnimalMovie;
+    if (!parsed.title || !parsed.description) return null;
+    console.log(`🤖 AI movie fallback: "${parsed.title}"`);
+    return parsed;
+  } catch (err) {
+    console.error('❌ AI movie fallback failed:', err);
+    return null;
+  }
+}
+
+// ─── Main export ──────────────────────────────────────────────────────────────
+
+export async function getAnimalMoviePost(): Promise<string> {
+  const movie = (await fetchFromTmdb()) ?? (await fetchFromAI());
+
+  if (!movie) {
+    return (
+      '🎬 <b>Кино про животных</b>\n\n' +
+      '❌ Не удалось загрузить фильм дня. Попробуем завтра!\n\n' +
+      '#кинопрождивотных\n' +
+      '<a href="https://t.me/stepka_and_twitty">⭐ Подписаться</a>'
+    );
+  }
+
+  return formatMoviePost(movie);
+}
 
 export function formatMoviePost(movie: AnimalMovie): string {
   const comment = movie.stepkaComment
     ? `\n\n💬 <i>Стёпка:</i> «${movie.stepkaComment}»`
     : '';
 
-  return `🎬 <b>Кино про животных</b>
-
-<b>${movie.title} (${movie.year})</b>
-🌍 ${movie.country}
-
-${movie.description}${comment}
-
-#кинопрождивотных #фильмдня #животные
-<a href="https://t.me/stepka_and_twitty">⭐ Подписаться</a>`;
+  return (
+    `🎬 <b>Кино про животных</b>\n\n` +
+    `<b>${movie.title} (${movie.year})</b>\n` +
+    `🌍 ${movie.country}\n\n` +
+    `${movie.description}${comment}\n\n` +
+    `#кинопрождивотных #фильмдня #животные\n` +
+    `<a href="https://t.me/stepka_and_twitty">⭐ Подписаться</a>`
+  );
 }
