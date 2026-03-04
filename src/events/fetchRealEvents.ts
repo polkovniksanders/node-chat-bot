@@ -42,6 +42,7 @@ interface CompactWeather {
 
 interface WordMeaning {
   word: string;
+  wordRu: string;
   meaning: string;
 }
 
@@ -178,14 +179,11 @@ export function getRandomMorningGreeting(): string {
 
 async function translateText(text: string, hint = ''): Promise<string> {
   try {
-    const { gptunnelChat } = await import('@/ai/gptunnel.js');
+    const { generateContent } = await import('@/ai/generateContent.js');
     const systemPrompt = hint
       ? `Переведи текст на русский язык. ${hint} Верни только перевод, без пояснений.`
       : 'Переведи текст на русский язык. Верни только перевод, без пояснений.';
-    const result = await gptunnelChat([
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: text },
-    ]);
+    const result = await generateContent(systemPrompt, text);
     return result.trim() || text;
   } catch {
     return text;
@@ -397,8 +395,11 @@ async function fetchWordMeaning(): Promise<WordMeaning | null> {
     const data = (await res.json()) as any[];
     const definition = data[0]?.meanings?.[0]?.definitions?.[0]?.definition;
     if (!definition) return null;
-    const translated = await translateText(definition);
-    return { word, meaning: translated };
+    const [wordRu, meaning] = await Promise.all([
+      translateText(word, 'Переведи одно английское слово на русский. Верни только одно слово или короткое словосочетание.'),
+      translateText(definition),
+    ]);
+    return { word, wordRu, meaning };
   } catch {
     return null;
   }
@@ -508,7 +509,7 @@ async function fetchSunTimes(): Promise<SunTimes | null> {
 }
 
 async function fetchRiddle(): Promise<Riddle | null> {
-  const { gptunnelChat } = await import('@/ai/gptunnel.js');
+  const { generateContent } = await import('@/ai/generateContent.js');
 
   // Try English riddles API → translate
   try {
@@ -518,15 +519,11 @@ async function fetchRiddle(): Promise<Riddle | null> {
     if (res.ok) {
       const data = (await res.json()) as { riddle: string; answer: string };
       if (data.riddle && data.answer) {
-        const raw = await gptunnelChat([
-          {
-            role: 'system',
-            content:
-              'Переведи загадку и ответ на русский язык. Сохрани игровой смысл и логику загадки. ' +
-              'Верни строго JSON без markdown-блоков: {"riddle":"...","answer":"..."}',
-          },
-          { role: 'user', content: JSON.stringify({ riddle: data.riddle, answer: data.answer }) },
-        ]);
+        const raw = await generateContent(
+          'Переведи загадку и ответ на русский язык. Сохрани игровой смысл и логику загадки. ' +
+            'Верни строго JSON без markdown-блоков: {"riddle":"...","answer":"..."}',
+          JSON.stringify({ riddle: data.riddle, answer: data.answer }),
+        );
         const parsed = JSON.parse(raw.trim()) as { riddle: string; answer: string };
         if (parsed.riddle && parsed.answer) {
           return { question: parsed.riddle, answer: parsed.answer };
@@ -539,15 +536,11 @@ async function fetchRiddle(): Promise<Riddle | null> {
 
   // Fallback: AI generates a riddle in Russian directly
   try {
-    const raw = await gptunnelChat([
-      {
-        role: 'system',
-        content:
-          'Придумай оригинальную, короткую загадку на русском языке. ' +
-          'Верни строго JSON без markdown-блоков: {"riddle":"текст загадки","answer":"ответ"}',
-      },
-      { role: 'user', content: 'Загадку!' },
-    ]);
+    const raw = await generateContent(
+      'Придумай оригинальную, короткую загадку на русском языке. ' +
+        'Верни строго JSON без markdown-блоков: {"riddle":"текст загадки","answer":"ответ"}',
+      'Загадку!',
+    );
     const parsed = JSON.parse(raw.trim()) as { riddle: string; answer: string };
     if (parsed.riddle && parsed.answer) {
       return { question: parsed.riddle, answer: parsed.answer };
@@ -721,7 +714,7 @@ export async function fetchRealEventsForDate(date: Date): Promise<string> {
 
   // ── Слово дня ─────────────────────────────────────────────────────────────
   if (wordMeaning) {
-    text += `\n📖 <b>Слово дня</b> — <i>${wordMeaning.word}:</i>\n${wordMeaning.meaning}\n`;
+    text += `\n📖 <b>Слово дня</b> — <i>${wordMeaning.word}</i> (${wordMeaning.wordRu}):\n${wordMeaning.meaning}\n`;
   }
 
   // ── Родились в этот день ──────────────────────────────────────────────────
