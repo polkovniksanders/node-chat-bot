@@ -88,6 +88,9 @@ export function setupHandlers(botInstance: typeof bot) {
 
     const text = ctx.message.text.trim();
 
+    // Игнорируем команды (начинаются с /) — их обрабатывают отдельные хэндлеры
+    if (text.startsWith('/')) return;
+
     // "погода [город]" — альтернатива /weather для личных сообщений
     const weatherMatch = text.match(/^погода\s*(.*)/i);
     if (weatherMatch) {
