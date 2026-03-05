@@ -3,6 +3,7 @@ import { bot } from '@/botInstance.js';
 import { setupHandlers } from '@/bot/handlers.js';
 import { setupDailyCycleCron } from '@/cron/dailyCycle.js';
 import { setupDailyEventsCron } from '@/cron/dailyEvents.js';
+import { setupSoraVideoCron } from '@/cron/soraVideoCron.js';
 
 if (!process.env.TELEGRAM_TOKEN) {
   console.error('❌ TELEGRAM_TOKEN не задан в .env');
@@ -15,6 +16,7 @@ if (!process.env.EVENTS_CHANNEL_ID) {
 
 setupHandlers(bot);
 setupDailyCycleCron();
+setupSoraVideoCron();
 
 if (process.env.EVENTS_CHANNEL_ID) {
   setupDailyEventsCron();
