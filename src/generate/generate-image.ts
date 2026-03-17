@@ -1,5 +1,5 @@
 const BASE_URL = 'https://gptunnel.ru/v1';
-const IMAGE_MODEL = 'flux-pro-1.1-ultra';
+const IMAGE_MODELS = ['flux-2-klein-4b-chat', 'yandex-art'];
 const POLL_INTERVAL_MS = 3_000;
 const POLL_TIMEOUT_MS = 120_000;
 
@@ -19,8 +19,8 @@ async function apiPost(path: string, body: Record<string, unknown>): Promise<any
   return JSON.parse(text);
 }
 
-async function createTask(prompt: string): Promise<string> {
-  const data = await apiPost('/media/create', { model: IMAGE_MODEL, prompt, ar: '1:1' });
+async function createTask(model: string, prompt: string): Promise<string> {
+  const data = await apiPost('/media/create', { model, prompt, ar: '1:1' });
   const taskId: string | undefined = data?.id;
   if (!taskId) throw new Error(`GPTunnel не вернул task ID: ${JSON.stringify(data)}`);
   return taskId;
@@ -50,15 +50,27 @@ async function pollResult(taskId: string): Promise<string> {
   throw new Error('GPTunnel: таймаут генерации изображения (120 сек.)');
 }
 
+async function tryGenerateWithModel(model: string, prompt: string): Promise<string> {
+  const taskId = await createTask(model, prompt);
+  console.log(`🎨 GPTunnel image task created (${model}): ${taskId}`);
+  return pollResult(taskId);
+}
+
 export async function generateImage(prompt: string): Promise<Buffer> {
-  const taskId = await createTask(prompt);
-  console.log(`🎨 GPTunnel image task created: ${taskId}`);
+  let lastError: Error | undefined;
 
-  const imageUrl = await pollResult(taskId);
-  console.log(`✅ GPTunnel image ready: ${imageUrl}`);
+  for (const model of IMAGE_MODELS) {
+    try {
+      const imageUrl = await tryGenerateWithModel(model, prompt);
+      console.log(`✅ GPTunnel image ready (${model}): ${imageUrl}`);
+      const imgRes = await fetch(imageUrl);
+      if (!imgRes.ok) throw new Error(`Не удалось скачать изображение: ${imgRes.status}`);
+      return Buffer.from(await imgRes.arrayBuffer());
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      console.warn(`⚠️ GPTunnel model ${model} failed: ${lastError.message}`);
+    }
+  }
 
-  const imgRes = await fetch(imageUrl);
-  if (!imgRes.ok) throw new Error(`Не удалось скачать изображение: ${imgRes.status}`);
-
-  return Buffer.from(await imgRes.arrayBuffer());
+  throw lastError ?? new Error('Все модели генерации изображений недоступны');
 }

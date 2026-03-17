@@ -1,22 +1,23 @@
 // Sources:
-// 1.  openholidaysapi.org   — official public holidays by country (free, no auth)
-// 2.  isdayoff.ru           — check if today is a day off in Russia (free, no auth)
-// 3.  calend.ru             — Russian memorable dates (scraping)
-// 4.  api.geonames.org      — random world city info (free, needs GEONAMES_USERNAME)
+// 1.  openholidaysapi.org        — official public holidays by country (free, no auth)
+// 2.  isdayoff.ru                — check if today is a day off in Russia (free, no auth)
+// 3.  calend.ru                  — Russian memorable dates (scraping)
+// 4.  api.geonames.org           — random world city info (free, needs GEONAMES_USERNAME)
 //     ↳ fallback: curated list of interesting cities
-// 5.  openweathermap.org    — weather for 2 cities (needs OPENWEATHERMAP_API_KEY)
+// 5.  openweathermap.org         — weather for 2 cities (needs OPENWEATHERMAP_API_KEY)
 //     ↳ fallback: open-meteo.com (free, no auth)
-// 6.  catfact.ninja         — random cat fact (free, no auth)
-// 7.  dogapi.dog            — random dog fact (free, no auth)
-// 8.  api.dictionaryapi.dev — word of the day definition (free, no auth)
-// 9.  uselessfacts.jsph.pl  — interesting fact (free, no auth)
-// 10. coffee.alexflipnote.dev — random coffee photo (free, no auth)
-// 11. byabbe.se             — notable births on this day (free, no auth)
-// 12. cbr-xml-daily.ru      — ЦБ РФ exchange rates USD/EUR/CNY (free, no auth)
-// 13. open.er-api.com       — CDF (Congolese Franc) rate via USD pivot (free, no auth)
-// 14. api.sunrise-sunset.org— sunrise & sunset times for Chelyabinsk (free, no auth)
-// 15. riddles-api.vercel.app— random English riddle translated to Russian (free, no auth)
+// 6.  catfact.ninja              — random cat fact (free, no auth)
+// 7.  dogapi.dog                 — random dog fact (free, no auth)
+// 8.  api.dictionaryapi.dev      — word of the day definition (free, no auth)
+// 9.  uselessfacts.jsph.pl       — interesting fact (free, no auth)
+// 10. coffee.alexflipnote.dev    — random coffee photo (free, no auth)
+// 11. byabbe.se                  — notable births on this day (free, no auth)
+// 12. cbr-xml-daily.ru           — ЦБ РФ exchange rates USD/EUR/CNY (free, no auth)
+// 13. open.er-api.com            — CDF (Congolese Franc) rate via USD pivot (free, no auth)
+// 14. api.sunrise-sunset.org     — sunrise & sunset times for Chelyabinsk (free, no auth)
+// 15. riddles-api.vercel.app     — random English riddle translated to Russian (free, no auth)
 //     ↳ fallback: AI generates a Russian riddle directly
+// 16. kakoysegodnyaprazdnik.ru   — fun/quirky holidays sorted by popularity (scraping)
 
 interface OpenHoliday {
   id: string;
@@ -226,6 +227,45 @@ async function checkIsDayOff(date: Date): Promise<boolean | null> {
 }
 
 const RUSSIAN_CATEGORIES = ['России', 'Православн', 'воинской', 'Народн', 'Патриот'];
+
+const MONTH_TRANSLITS: Record<number, string> = {
+  1: 'yanvar', 2: 'fevral', 3: 'mart', 4: 'aprel', 5: 'may', 6: 'iyun',
+  7: 'iyul', 8: 'avgust', 9: 'sentyabr', 10: 'oktyabr', 11: 'noyabr', 12: 'dekabr',
+};
+
+async function fetchKakoyPrazdnik(date: Date): Promise<string[]> {
+  try {
+    const month = MONTH_TRANSLITS[date.getMonth() + 1];
+    const day = date.getDate();
+    const url = `https://kakoysegodnyaprazdnik.ru/baza/${month}/${day}`;
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept-Language': 'ru-RU,ru;q=0.9',
+      },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return [];
+    const html = await res.text();
+
+    // Each holiday block: <meta itemprop="upvoteCount" content="N"> followed by <span itemprop="text">NAME</span>
+    const blockPattern = /<meta\s+itemprop="upvoteCount"\s+content="(\d+)"[\s\S]*?<span[^>]*itemprop="text"[^>]*>([\s\S]*?)<\/span>/g;
+    const items: Array<{ votes: number; name: string }> = [];
+    let m;
+    while ((m = blockPattern.exec(html)) !== null) {
+      const votes = parseInt(m[1], 10);
+      const name = m[2].replace(/<[^>]+>/g, '').trim();
+      if (name.length > 3) items.push({ votes, name });
+    }
+
+    return items
+      .sort((a, b) => b.votes - a.votes)
+      .slice(0, 5)
+      .map((i) => i.name);
+  } catch {
+    return [];
+  }
+}
 
 async function fetchCalendRuHolidays(date: Date): Promise<string[]> {
   try {
@@ -508,6 +548,25 @@ async function fetchSunTimes(): Promise<SunTimes | null> {
   }
 }
 
+async function fetchDilemma(): Promise<string | null> {
+  try {
+    const { generateContent } = await import('@/ai/generateContent.js');
+    const result = await generateContent(
+      'Ты генерируешь вопрос-дилемму для Telegram-канала. ' +
+        'Придумай один каверзный вопрос в формате "Что выберете: [вариант А] или [вариант Б]?" — ' +
+        'оба варианта должны быть одинаково соблазнительными или одинаково неприятными, ' +
+        'чтобы выбор был действительно сложным. Варианты могут быть из любой сферы жизни: ' +
+        'еда, деньги, отношения, путешествия, суперспособности, нелепые ситуации и т.д. ' +
+        'Верни только текст вопроса, без кавычек и пояснений.',
+      'Сгенерируй вопрос-дилемму!',
+    );
+    const question = result.trim();
+    return question.length > 10 ? question : null;
+  } catch {
+    return null;
+  }
+}
+
 async function fetchRiddle(): Promise<Riddle | null> {
   const { generateContent } = await import('@/ai/generateContent.js');
 
@@ -577,6 +636,7 @@ export async function fetchRealEventsForDate(date: Date): Promise<string> {
     holidaysResult,
     isDayOffResult,
     calendResult,
+    kakoyPrazdnikResult,
     birthsResult,
     placeResult,
     catFactResult,
@@ -586,11 +646,13 @@ export async function fetchRealEventsForDate(date: Date): Promise<string> {
     cbrRatesResult,
     cdfRateResult,
     sunTimesResult,
+    dilemmaResult,
     riddleResult,
   ] = await Promise.allSettled([
     fetchOpenHolidays(date),
     checkIsDayOff(date),
     fetchCalendRuHolidays(date),
+    fetchKakoyPrazdnik(date),
     fetchBirths(date),
     fetchRandomPlace(),
     fetchCatFact(),
@@ -600,12 +662,14 @@ export async function fetchRealEventsForDate(date: Date): Promise<string> {
     fetchCbrRates(),
     fetchCdfRate(),
     fetchSunTimes(),
+    fetchDilemma(),
     fetchRiddle(),
   ]);
 
   const isDayOff = isDayOffResult.status === 'fulfilled' ? isDayOffResult.value : null;
   const officialHolidays = holidaysResult.status === 'fulfilled' ? holidaysResult.value : [];
   const calendHolidays = calendResult.status === 'fulfilled' ? calendResult.value : [];
+  const kakoyPrazdnik = kakoyPrazdnikResult.status === 'fulfilled' ? kakoyPrazdnikResult.value : [];
   const births = birthsResult.status === 'fulfilled' ? birthsResult.value : [];
   const place = placeResult.status === 'fulfilled' ? placeResult.value : null;
   const catFact = catFactResult.status === 'fulfilled' ? catFactResult.value : null;
@@ -615,6 +679,7 @@ export async function fetchRealEventsForDate(date: Date): Promise<string> {
   const cbrRates = cbrRatesResult.status === 'fulfilled' ? cbrRatesResult.value : [];
   const cdfRate = cdfRateResult.status === 'fulfilled' ? cdfRateResult.value : null;
   const sunTimes = sunTimesResult.status === 'fulfilled' ? sunTimesResult.value : null;
+  const dilemma = dilemmaResult.status === 'fulfilled' ? dilemmaResult.value : null;
   const riddle = riddleResult.status === 'fulfilled' ? riddleResult.value : null;
 
   // Phase 2: fetch weather for both cities in parallel (Chelyabinsk + random place)
@@ -646,6 +711,12 @@ export async function fetchRealEventsForDate(date: Date): Promise<string> {
   if (allHolidays.length > 0) {
     text += `\n🌟 <b>Памятные даты:</b>\n`;
     allHolidays.forEach((h) => (text += `• ${h}\n`));
+  }
+
+  // ── Праздники дня (необычные) ──────────────────────────────────────────────
+  if (kakoyPrazdnik.length > 0) {
+    text += `\n🎉 <b>Праздники дня:</b>\n`;
+    kakoyPrazdnik.forEach((h) => (text += `• ${h}\n`));
   }
 
   text += `\n<b>──────────────</b>\n`;
@@ -727,6 +798,12 @@ export async function fetchRealEventsForDate(date: Date): Promise<string> {
   // ── Факт дня ──────────────────────────────────────────────────────────────
   if (uselessFact) {
     text += `\n🌀 <b>Факт дня:</b>\n${uselessFact}\n`;
+  }
+
+  // ── Дилемма дня ───────────────────────────────────────────────────────────
+  if (dilemma) {
+    text += `\n<b>──────────────</b>\n`;
+    text += `\n🤔 <b>Вопрос дня:</b>\n${dilemma}\n`;
   }
 
   // ── Загадка дня ───────────────────────────────────────────────────────────
