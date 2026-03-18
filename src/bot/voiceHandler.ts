@@ -42,9 +42,11 @@ export function setupVoiceHandler(botInstance: Bot) {
 
   // /transcribe в ответ на войс — работает в группах и личке
   botInstance.command('transcribe', async (ctx) => {
-    const voice = ctx.message?.reply_to_message?.voice;
+    const reply = ctx.message?.reply_to_message;
+    const voice = reply?.voice;
     if (!voice) {
-      await ctx.reply('↩️ Ответь этой командой на голосовое сообщение.');
+      const debugKeys = reply ? Object.keys(reply).join(', ') : 'нет reply_to_message';
+      await ctx.reply(`↩️ Ответь этой командой на голосовое сообщение.\n\n🔍 debug: ${debugKeys}`);
       return;
     }
     await handleTranscription(ctx, voice.file_id);
