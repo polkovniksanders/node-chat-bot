@@ -40,21 +40,13 @@ export function setupVoiceHandler(botInstance: Bot) {
     await handleTranscription(ctx, ctx.message.voice.file_id);
   });
 
-  // Группа: ответить на войс с упоминанием @бота → расшифровать
-  botInstance.on('message:text', async (ctx) => {
-    if (ctx.chat.type === 'private') return;
-
-    const voice = ctx.message.reply_to_message?.voice;
-    if (!voice) return;
-
-    const botUsername = ctx.me.username;
-    const isMentioned = ctx.message.entities?.some(
-      (e) =>
-        e.type === 'mention' &&
-        ctx.message.text.substring(e.offset, e.offset + e.length) === `@${botUsername}`,
-    );
-    if (!isMentioned) return;
-
+  // /transcribe в ответ на войс — работает в группах и личке
+  botInstance.command('transcribe', async (ctx) => {
+    const voice = ctx.message?.reply_to_message?.voice;
+    if (!voice) {
+      await ctx.reply('↩️ Ответь этой командой на голосовое сообщение.');
+      return;
+    }
     await handleTranscription(ctx, voice.file_id);
   });
 }
