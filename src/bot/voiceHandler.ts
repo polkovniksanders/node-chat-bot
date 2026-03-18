@@ -45,8 +45,8 @@ export function setupVoiceHandler(botInstance: Bot) {
     const reply = ctx.message?.reply_to_message;
     const voice = reply?.voice;
     if (!voice) {
-      const debug = JSON.stringify(ctx.message, null, 2).slice(0, 1000);
-      await ctx.reply(`🔍 debug:\n<pre>${debug}</pre>`, { parse_mode: 'HTML' });
+      const keys = reply ? Object.keys(reply).join(', ') : 'no reply';
+      await ctx.reply(`debug: ${keys}`);
       return;
     }
     await handleTranscription(ctx, voice.file_id);
