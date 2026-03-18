@@ -20,7 +20,7 @@ export async function transcribeAudio(audioBuffer: Buffer): Promise<string> {
   const transcriptRes = await fetch('https://api.assemblyai.com/v2/transcript', {
     method: 'POST',
     headers,
-    body: JSON.stringify({ audio_url: upload_url, language_detection: true, speech_models: ['universal-2'] }),
+    body: JSON.stringify({ audio_url: upload_url, language_code: 'ru', speech_models: ['universal-2'] }),
   });
   if (!transcriptRes.ok) throw new Error(`AssemblyAI transcript error: ${await transcriptRes.text()}`);
   const { id } = await transcriptRes.json() as { id: string };
