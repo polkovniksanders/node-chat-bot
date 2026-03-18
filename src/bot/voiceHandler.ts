@@ -46,7 +46,9 @@ export function setupVoiceHandler(botInstance: Bot) {
       ctx.message?.reply_to_message?.voice ??
       (ctx.message?.external_reply as any)?.voice;
     if (!voice) {
-      await ctx.reply('↩️ Ответь этой командой на голосовое сообщение.');
+      const msg = ctx.message as any;
+      const debug = `rtr_keys: ${msg?.reply_to_message ? Object.keys(msg.reply_to_message).join(',') : 'none'} | ext: ${msg?.external_reply ? Object.keys(msg.external_reply).join(',') : 'none'}`;
+      await ctx.reply(debug);
       return;
     }
     await handleTranscription(ctx, voice.file_id);
