@@ -7,6 +7,7 @@ import { formatWeather } from '@/weather/formatter.js';
 import { generateImage } from '@/generate/generate-image.js';
 import { checkRateLimit, recordGeneration, formatRemaining } from '@/generate/rate-limiter.js';
 import { setupSoraHandler } from '@/bot/soraHandler.js';
+import { setupVoiceHandler } from '@/bot/voiceHandler.js';
 
 const DEFAULT_CITY = 'Челябинск';
 
@@ -24,6 +25,7 @@ async function sendWeather(ctx: Context, city: string) {
 
 export function setupHandlers(botInstance: typeof bot) {
   setupSoraHandler();
+  setupVoiceHandler(botInstance);
 
   botInstance.command('events', async (ctx) => {
     const channelId = process.env.EVENTS_CHANNEL_ID;
