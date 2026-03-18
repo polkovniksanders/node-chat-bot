@@ -1,27 +1,42 @@
 /**
- * Транскрибирует аудио через HuggingFace Whisper (бесплатно).
+ * Транскрибирует аудио через Gemini 1.5 Flash (поддерживает OGG/OPUS).
  */
 export async function transcribeAudio(audioBuffer: Buffer): Promise<string> {
-  const apiKey = process.env.HF_TOKEN;
-  if (!apiKey) throw new Error('HF_TOKEN не задан в .env');
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error('GEMINI_API_KEY не задан в .env');
+
+  const body = {
+    contents: [
+      {
+        parts: [
+          {
+            inline_data: {
+              mime_type: 'audio/ogg',
+              data: audioBuffer.toString('base64'),
+            },
+          },
+          {
+            text: 'Transcribe the audio exactly as spoken. Return only the transcribed text, nothing else.',
+          },
+        ],
+      },
+    ],
+  };
 
   const res = await fetch(
-    'https://api-inference.huggingface.co/models/openai/whisper-large-v3',
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
     {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'audio/ogg',
-      },
-      body: audioBuffer,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
     },
   );
 
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`HuggingFace Whisper error: ${err}`);
+    throw new Error(`Gemini transcription error: ${err}`);
   }
 
   const data: any = await res.json();
-  return data.text?.trim() ?? '';
+  return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
 }
