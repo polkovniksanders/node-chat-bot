@@ -7,9 +7,9 @@ import { getAnimalMoviePost } from '@/content/animalMovies.js';
 import { getYoutubeVideoPost } from '@/content/youtubeVideos.js';
 import { generatePetNamesPost } from '@/content/petNames.js';
 import { generateAnimalStoryPost } from '@/content/animalStory.js';
+import { TEST_CHANNEL, TIMEZONE } from '@/config/constants.js';
 
 const CHANNEL_ID = process.env.CHANNEL_ID!;
-const TEST_CHANNEL = '@node_js_test';
 
 async function sendPost(text: string, image?: Buffer | null) {
   if (image) {
@@ -40,8 +40,7 @@ async function runDayTwo() {
 async function runDayThree() {
   const text = await getYoutubeVideoPost();
   // URL in text → Telegram auto-shows YouTube preview
-  await bot.api.sendMessage(CHANNEL_ID, text, { parse_mode: 'HTML' });
-  await bot.api.sendMessage(TEST_CHANNEL, text, { parse_mode: 'HTML' });
+  await sendPost(text);
 }
 
 async function runDayFour() {
@@ -88,7 +87,7 @@ export function setupDailyCycleCron() {
         console.error(`❌ Daily cycle day ${day} failed:`, err);
       }
     },
-    { timezone: 'Asia/Yekaterinburg' },
+    { timezone: TIMEZONE },
   );
 
   console.log('⏰ Cron для 5-дневного цикла запущен (11:00 по Челябинску)');

@@ -1,6 +1,5 @@
 import { gptunnelChat } from '@/ai/gptunnel.js';
-
-const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
+import { ANTHROPIC_URL, ANTHROPIC_MODEL } from '@/config/api.js';
 
 async function callAnthropic(systemPrompt: string, userPrompt: string): Promise<string> {
   const res = await fetch(ANTHROPIC_URL, {
@@ -11,7 +10,7 @@ async function callAnthropic(systemPrompt: string, userPrompt: string): Promise<
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
+      model: ANTHROPIC_MODEL,
       max_tokens: 1024,
       system: systemPrompt,
       messages: [{ role: 'user', content: userPrompt }],

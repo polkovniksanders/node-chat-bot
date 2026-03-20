@@ -19,171 +19,43 @@
 //     ↳ fallback: AI generates a Russian riddle directly
 // 16. kakoysegodnyaprazdnik.ru   — fun/quirky holidays sorted by popularity (scraping)
 
-interface OpenHoliday {
-  id: string;
-  startDate: string;
-  endDate: string;
-  name: Array<{ language: string; text: string }>;
-}
-
-interface PlaceInfo {
-  name: string;
-  country: string;
-  lat: number;
-  lon: number;
-  population?: number;
-}
-
-interface CompactWeather {
-  city: string;
-  temp: number;
-  description: string;
-  humidity: number;
-}
-
-interface WordMeaning {
-  word: string;
-  wordRu: string;
-  meaning: string;
-}
-
-interface CurrencyRate {
-  flag: string;
-  code: string;
-  valueRub: number;
-  previousRub: number;
-}
-
-interface CdfRate {
-  cdfPerRub: number;
-}
-
-interface SunTimes {
-  sunrise: string;
-  sunset: string;
-  dayLength: string;
-}
-
-interface Riddle {
-  question: string;
-  answer: string;
-}
-
-// Curated fallback cities for when GeoNames is unavailable
-const FALLBACK_PLACES: PlaceInfo[] = [
-  { name: 'Токио', country: 'Япония', lat: 35.6762, lon: 139.6503, population: 13960000 },
-  { name: 'Рим', country: 'Италия', lat: 41.9028, lon: 12.4964, population: 2873000 },
-  { name: 'Рейкьявик', country: 'Исландия', lat: 64.1355, lon: -21.8954, population: 130000 },
-  { name: 'Маракеш', country: 'Марокко', lat: 31.6295, lon: -7.9811, population: 1070838 },
-  { name: 'Прага', country: 'Чехия', lat: 50.0755, lon: 14.4378, population: 1309000 },
-  { name: 'Дублин', country: 'Ирландия', lat: 53.3498, lon: -6.2603, population: 1388000 },
-  { name: 'Буэнос-Айрес', country: 'Аргентина', lat: -34.6037, lon: -58.3816, population: 2890151 },
-  { name: 'Кейптаун', country: 'ЮАР', lat: -33.9249, lon: 18.4241, population: 4618000 },
-  { name: 'Осло', country: 'Норвегия', lat: 59.9139, lon: 10.7522, population: 1023100 },
-  { name: 'Амстердам', country: 'Нидерланды', lat: 52.3676, lon: 4.9041, population: 921000 },
-  { name: 'Бангкок', country: 'Таиланд', lat: 13.7563, lon: 100.5018, population: 10539000 },
-  { name: 'Лиссабон', country: 'Португалия', lat: 38.7223, lon: -9.1393, population: 545245 },
-  { name: 'Дубай', country: 'ОАЭ', lat: 25.2048, lon: 55.2708, population: 3478000 },
-  {
-    name: 'Уэллингтон',
-    country: 'Новая Зеландия',
-    lat: -41.2866,
-    lon: 174.7756,
-    population: 418500,
-  },
-  { name: 'Хельсинки', country: 'Финляндия', lat: 60.1699, lon: 24.9384, population: 658864 },
-  { name: 'Краков', country: 'Польша', lat: 50.0647, lon: 19.945, population: 779115 },
-  { name: 'Сантьяго', country: 'Чили', lat: -33.4489, lon: -70.6693, population: 7039000 },
-  { name: 'Аккра', country: 'Гана', lat: 5.6037, lon: -0.187, population: 2513000 },
-  { name: 'Монтевидео', country: 'Уругвай', lat: -34.9011, lon: -56.1645, population: 1381000 },
-  { name: 'Бали', country: 'Индонезия', lat: -8.3405, lon: 115.092, population: 4225000 },
-  { name: 'Барселона', country: 'Испания', lat: 41.3851, lon: 2.1734, population: 1636762 },
-  { name: 'Вена', country: 'Австрия', lat: 48.2082, lon: 16.3738, population: 1897491 },
-  { name: 'Стамбул', country: 'Турция', lat: 41.0082, lon: 28.9784, population: 15462452 },
-  { name: 'Найроби', country: 'Кения', lat: -1.2921, lon: 36.8219, population: 4397073 },
-  { name: 'Сингапур', country: 'Сингапур', lat: 1.3521, lon: 103.8198, population: 5686000 },
-];
-
-// Beautiful English words for "Word of the Day"
-const INTERESTING_WORDS = [
-  'serendipity',
-  'ephemeral',
-  'mellifluous',
-  'petrichor',
-  'solitude',
-  'wanderlust',
-  'luminous',
-  'ethereal',
-  'cascade',
-  'aurora',
-  'zenith',
-  'tranquil',
-  'resilience',
-  'serenade',
-  'bliss',
-  'harmony',
-  'euphoria',
-  'compassion',
-  'gratitude',
-  'halcyon',
-  'lullaby',
-  'renaissance',
-  'serenity',
-  'radiance',
-  'whimsical',
-];
-
-// WMO weather codes → compact Russian descriptions
-const WMO_SHORT: Record<number, string> = {
-  0: 'ясно ☀️',
-  1: 'преимущественно ясно 🌤',
-  2: 'переменная облачность ⛅',
-  3: 'пасмурно ☁️',
-  45: 'туман 🌫',
-  48: 'ледяной туман 🌫',
-  51: 'слабая морось 🌦',
-  53: 'морось 🌦',
-  55: 'сильная морось 🌧',
-  61: 'небольшой дождь 🌧',
-  63: 'дождь 🌧',
-  65: 'сильный дождь 🌧',
-  71: 'небольшой снег ❄️',
-  73: 'снег ❄️',
-  75: 'сильный снег ❄️',
-  77: 'снежная крупа 🌨',
-  80: 'ливень 🌦',
-  81: 'сильный ливень 🌧',
-  82: 'проливной дождь ⛈',
-  85: 'снежный ливень ❄️',
-  86: 'сильный снежный ливень ❄️',
-  95: 'гроза ⛈',
-  96: 'гроза с градом ⛈',
-  99: 'гроза с крупным градом ⛈',
-};
-
-// Morning greetings for coffee photo post (8:55)
-const MORNING_GREETINGS = [
-  '☕ Доброе утро! Твой утренний кофе уже готов\nЧерез 5 минут выйдет дайджест дня — оставайся с нами 📰',
-  '🌅 Новый день начинается!\nВот твой кофе — через 5 минут свежий дайджест ☕',
-  '☀️ Доброе утро!\nПока заваривается дайджест — держи кофе ☕ Скоро всё самое интересное 📋',
-  '🌸 Пусть этот день будет тёплым!\nКофе уже здесь, дайджест — через 5 минут ☕',
-  '🍀 Доброе утро! Начни день с маленькой радости ☕\nЧерез несколько минут — всё самое интересное 📰',
-  '✨ Утро началось!\nТвоя чашка кофе уже ждёт тебя ☕ А мы уже готовим дайджест дня 📋',
-  '🌿 Хорошего утра!\nКофе — это лучшее начало дня ☕ Дайджест совсем скоро 📰',
-];
-
-export function getRandomMorningGreeting(): string {
-  return MORNING_GREETINGS[Math.floor(Math.random() * MORNING_GREETINGS.length)];
-}
+import { generateContent } from '@/ai/generateContent.js';
+import { API_URLS, TIMEOUT_SHORT, TIMEOUT_MEDIUM, TIMEOUT_LONG } from '@/config/api.js';
+import {
+  TIMEZONE,
+  CHELYABINSK,
+  FALLBACK_PLACES,
+  INTERESTING_WORDS,
+  WMO_SHORT,
+  MORNING_GREETINGS,
+  MONTH_TRANSLITS,
+} from '@/config/constants.js';
+import {
+  TRANSLATE_SYSTEM_PROMPT,
+  CAT_FACT_TRANSLATE_HINT,
+  DOG_FACT_TRANSLATE_HINT,
+  USELESS_FACT_TRANSLATE_HINT,
+  WORD_TRANSLATE_HINT,
+  RIDDLE_TRANSLATE_SYSTEM_PROMPT,
+  RIDDLE_GENERATE_SYSTEM_PROMPT,
+  DILEMMA_SYSTEM_PROMPT,
+} from '@/config/prompts.js';
+import type {
+  OpenHoliday,
+  PlaceInfo,
+  CompactWeather,
+  WordMeaning,
+  CurrencyRate,
+  CdfRate,
+  SunTimes,
+  Riddle,
+} from '@/types/index.js';
 
 // ─── Translation helper ──────────────────────────────────────────────────────
 
 async function translateText(text: string, hint = ''): Promise<string> {
   try {
-    const { generateContent } = await import('@/ai/generateContent.js');
-    const systemPrompt = hint
-      ? `Переведи текст на русский язык. ${hint} Верни только перевод, без пояснений.`
-      : 'Переведи текст на русский язык. Верни только перевод, без пояснений.';
+    const systemPrompt = hint ? `${TRANSLATE_SYSTEM_PROMPT} ${hint}` : TRANSLATE_SYSTEM_PROMPT;
     const result = await generateContent(systemPrompt, text);
     return result.trim() || text;
   } catch {
@@ -199,8 +71,8 @@ async function fetchOpenHolidays(date: Date): Promise<string[]> {
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     const dateStr = `${year}-${month}-${day}`;
-    const url = `https://openholidaysapi.org/PublicHolidays?countryIsoCode=RU&languageIsoCode=RU&validFrom=${dateStr}&validTo=${dateStr}`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
+    const url = `${API_URLS.OPEN_HOLIDAYS}?countryIsoCode=RU&languageIsoCode=RU&validFrom=${dateStr}&validTo=${dateStr}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MEDIUM) });
     if (!res.ok) return [];
     const data = (await res.json()) as OpenHoliday[];
     return data
@@ -216,8 +88,8 @@ async function checkIsDayOff(date: Date): Promise<boolean | null> {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
-    const url = `https://isdayoff.ru/api/getdata?year=${year}&month=${month}&day=${day}&cc=ru`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+    const url = `${API_URLS.IS_DAY_OFF}?year=${year}&month=${month}&day=${day}&cc=ru`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_SHORT) });
     if (!res.ok) return null;
     const text = await res.text();
     return text.trim() === '1';
@@ -226,24 +98,17 @@ async function checkIsDayOff(date: Date): Promise<boolean | null> {
   }
 }
 
-const RUSSIAN_CATEGORIES = ['России', 'Православн', 'воинской', 'Народн', 'Патриот'];
-
-const MONTH_TRANSLITS: Record<number, string> = {
-  1: 'yanvar', 2: 'fevral', 3: 'mart', 4: 'aprel', 5: 'may', 6: 'iyun',
-  7: 'iyul', 8: 'avgust', 9: 'sentyabr', 10: 'oktyabr', 11: 'noyabr', 12: 'dekabr',
-};
-
 async function fetchKakoyPrazdnik(date: Date): Promise<string[]> {
   try {
     const month = MONTH_TRANSLITS[date.getMonth() + 1];
     const day = date.getDate();
-    const url = `https://kakoysegodnyaprazdnik.ru/baza/${month}/${day}`;
+    const url = `${API_URLS.KAKOY_PRAZDNIK}/${month}/${day}`;
     const res = await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept-Language': 'ru-RU,ru;q=0.9',
       },
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(TIMEOUT_LONG),
     });
     if (!res.ok) return [];
     const html = await res.text();
@@ -271,33 +136,30 @@ async function fetchCalendRuHolidays(date: Date): Promise<string[]> {
   try {
     const month = date.getMonth() + 1;
     const day = date.getDate();
-    const url = `https://www.calend.ru/day/${month}-${day}/`;
+    const url = `${API_URLS.CALEND_RU}/${month}-${day}/`;
     const res = await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; TelegramBot/1.0)',
         'Accept-Language': 'ru-RU,ru;q=0.9',
       },
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(TIMEOUT_LONG),
     });
     if (!res.ok) return [];
     const html = await res.text();
 
+    // Actual holiday links use pattern /holidays/0/0/NNNN/ (numeric ID)
+    const seen = new Set<string>();
     const results: string[] = [];
-    const liPattern = /<li>([\s\S]*?)<\/li>/g;
-    let liMatch;
-    while ((liMatch = liPattern.exec(html)) !== null) {
-      const liContent = liMatch[1];
-      const linkMatch = /<a\s+href="[^"]*\/holidays\/[^"]*">\s*([\s\S]*?)\s*<\/a>/.exec(liContent);
-      const imgMatch = /<img[^>]+alt="([^"]+)"/.exec(liContent);
-      if (linkMatch && imgMatch) {
-        const name = linkMatch[1].trim();
-        const category = imgMatch[1].trim();
-        if (RUSSIAN_CATEGORIES.some((kw) => category.includes(kw)) && name.length > 3) {
-          results.push(name);
-        }
+    const pattern = /<a\s+href="\/holidays\/0\/0\/\d+\/"[^>]*>([\s\S]*?)<\/a>/g;
+    let m;
+    while ((m = pattern.exec(html)) !== null) {
+      const name = m[1].replace(/<[^>]+>/g, '').trim();
+      if (name.length > 3 && !seen.has(name)) {
+        seen.add(name);
+        results.push(name);
       }
     }
-    return results.slice(0, 4);
+    return results.slice(0, 5);
   } catch {
     return [];
   }
@@ -307,8 +169,8 @@ async function fetchBirths(date: Date): Promise<Array<{ year: string; descriptio
   try {
     const month = date.getMonth() + 1;
     const day = date.getDate();
-    const url = `https://byabbe.se/on-this-day/${month}/${day}.json`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    const url = `${API_URLS.BYABBE}/${month}/${day}.json`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_LONG) });
     if (!res.ok) return [];
     const data = (await res.json()) as { births: Array<{ year: string; description: string }> };
     return data.births?.slice(0, 3) ?? [];
@@ -321,8 +183,8 @@ async function fetchRandomPlace(): Promise<PlaceInfo> {
   const username = process.env.GEONAMES_USERNAME;
   if (username) {
     try {
-      const url = `http://api.geonames.org/citiesJSON?north=90&south=-90&east=180&west=-180&lang=ru&maxRows=500&username=${username}`;
-      const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+      const url = `${API_URLS.GEONAMES_CITIES}?north=90&south=-90&east=180&west=-180&lang=ru&maxRows=500&username=${username}`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_LONG) });
       if (res.ok) {
         const data = (await res.json()) as { geonames: any[] };
         const cities = data.geonames;
@@ -353,8 +215,8 @@ async function fetchCompactWeather(
   const owmKey = process.env.OPENWEATHERMAP_API_KEY;
   if (owmKey) {
     try {
-      const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${owmKey}&lang=ru&units=metric`;
-      const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+      const url = `${API_URLS.OPENWEATHERMAP}?lat=${lat}&lon=${lon}&appid=${owmKey}&lang=ru&units=metric`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_LONG) });
       if (res.ok) {
         const data = (await res.json()) as any;
         return {
@@ -378,8 +240,8 @@ async function fetchCompactWeather(
       timezone: 'auto',
       forecast_days: '1',
     });
-    const res = await fetch(`https://api.open-meteo.com/v1/forecast?${params}`, {
-      signal: AbortSignal.timeout(8000),
+    const res = await fetch(`${API_URLS.OPEN_METEO}?${params}`, {
+      signal: AbortSignal.timeout(TIMEOUT_LONG),
     });
     if (!res.ok) return null;
     const data = (await res.json()) as any;
@@ -397,14 +259,11 @@ async function fetchCompactWeather(
 
 async function fetchCatFact(): Promise<string | null> {
   try {
-    const res = await fetch('https://catfact.ninja/fact', { signal: AbortSignal.timeout(6000) });
+    const res = await fetch(API_URLS.CAT_FACT, { signal: AbortSignal.timeout(TIMEOUT_MEDIUM) });
     if (!res.ok) return null;
     const data = (await res.json()) as { fact: string };
     if (!data.fact) return null;
-    return await translateText(
-      data.fact,
-      'Сохрани позитивный и тёплый тон. Если факт грустный или жестокий — перефразируй в нейтральный.',
-    );
+    return await translateText(data.fact, CAT_FACT_TRANSLATE_HINT);
   } catch {
     return null;
   }
@@ -412,14 +271,14 @@ async function fetchCatFact(): Promise<string | null> {
 
 async function fetchDogFact(): Promise<string | null> {
   try {
-    const res = await fetch('https://dogapi.dog/api/v2/facts?limit=1', {
-      signal: AbortSignal.timeout(6000),
+    const res = await fetch(`${API_URLS.DOG_FACT}?limit=1`, {
+      signal: AbortSignal.timeout(TIMEOUT_MEDIUM),
     });
     if (!res.ok) return null;
     const data = (await res.json()) as { data: Array<{ attributes: { body: string } }> };
     const fact = data.data?.[0]?.attributes?.body;
     if (!fact) return null;
-    return await translateText(fact, 'Сохрани позитивный и тёплый тон.');
+    return await translateText(fact, DOG_FACT_TRANSLATE_HINT);
   } catch {
     return null;
   }
@@ -428,15 +287,15 @@ async function fetchDogFact(): Promise<string | null> {
 async function fetchWordMeaning(): Promise<WordMeaning | null> {
   const word = INTERESTING_WORDS[Math.floor(Math.random() * INTERESTING_WORDS.length)];
   try {
-    const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word}`, {
-      signal: AbortSignal.timeout(6000),
+    const res = await fetch(`${API_URLS.DICTIONARY}/${word}`, {
+      signal: AbortSignal.timeout(TIMEOUT_MEDIUM),
     });
     if (!res.ok) return null;
     const data = (await res.json()) as any[];
     const definition = data[0]?.meanings?.[0]?.definitions?.[0]?.definition;
     if (!definition) return null;
     const [wordRu, meaning] = await Promise.all([
-      translateText(word, 'Переведи одно английское слово на русский. Верни только одно слово или короткое словосочетание.'),
+      translateText(word, WORD_TRANSLATE_HINT),
       translateText(definition),
     ]);
     return { word, wordRu, meaning };
@@ -447,17 +306,13 @@ async function fetchWordMeaning(): Promise<WordMeaning | null> {
 
 async function fetchUselessFact(): Promise<string | null> {
   try {
-    const res = await fetch('https://uselessfacts.jsph.pl/api/v2/facts/random', {
-      signal: AbortSignal.timeout(5000),
+    const res = await fetch(API_URLS.USELESS_FACTS, {
+      signal: AbortSignal.timeout(TIMEOUT_SHORT),
     });
     if (!res.ok) return null;
     const data = (await res.json()) as { text: string };
     if (!data.text) return null;
-    return await translateText(
-      data.text,
-      'Сохрани позитивный и увлекательный тон. ' +
-        'Если факт содержит пошлость, насилие или неуместный контент — замени его на похожий интересный факт о природе, науке или истории.',
-    );
+    return await translateText(data.text, USELESS_FACT_TRANSLATE_HINT);
   } catch {
     return null;
   }
@@ -465,8 +320,8 @@ async function fetchUselessFact(): Promise<string | null> {
 
 async function fetchCbrRates(): Promise<CurrencyRate[]> {
   try {
-    const res = await fetch('https://www.cbr-xml-daily.ru/daily_json.js', {
-      signal: AbortSignal.timeout(8000),
+    const res = await fetch(API_URLS.CBR_RATES, {
+      signal: AbortSignal.timeout(TIMEOUT_LONG),
     });
     if (!res.ok) return [];
     const data = (await res.json()) as {
@@ -499,8 +354,8 @@ async function fetchCbrRates(): Promise<CurrencyRate[]> {
 // CDF is not listed by CBR — fetch via USD pivot from open.er-api.com
 async function fetchCdfRate(): Promise<CdfRate | null> {
   try {
-    const res = await fetch('https://open.er-api.com/v6/latest/USD', {
-      signal: AbortSignal.timeout(8000),
+    const res = await fetch(API_URLS.EXCHANGE_RATES, {
+      signal: AbortSignal.timeout(TIMEOUT_LONG),
     });
     if (!res.ok) return null;
     const data = (await res.json()) as { rates: Record<string, number> };
@@ -516,9 +371,8 @@ async function fetchCdfRate(): Promise<CdfRate | null> {
 
 async function fetchSunTimes(): Promise<SunTimes | null> {
   try {
-    // Chelyabinsk: lat=55.1644, lng=61.4368
-    const url = 'https://api.sunrise-sunset.org/json?lat=55.1644&lng=61.4368&formatted=0';
-    const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
+    const url = `${API_URLS.SUNRISE_SUNSET}?lat=${CHELYABINSK.lat}&lng=${CHELYABINSK.lon}&formatted=0`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MEDIUM) });
     if (!res.ok) return null;
     const data = (await res.json()) as {
       status: string;
@@ -530,7 +384,7 @@ async function fetchSunTimes(): Promise<SunTimes | null> {
       new Date(iso).toLocaleTimeString('ru-RU', {
         hour: '2-digit',
         minute: '2-digit',
-        timeZone: 'Asia/Yekaterinburg',
+        timeZone: TIMEZONE,
       });
 
     const totalSec = data.results.day_length;
@@ -550,16 +404,7 @@ async function fetchSunTimes(): Promise<SunTimes | null> {
 
 async function fetchDilemma(): Promise<string | null> {
   try {
-    const { generateContent } = await import('@/ai/generateContent.js');
-    const result = await generateContent(
-      'Ты генерируешь вопрос-дилемму для Telegram-канала. ' +
-        'Придумай один каверзный вопрос в формате "Что выберете: [вариант А] или [вариант Б]?" — ' +
-        'оба варианта должны быть одинаково соблазнительными или одинаково неприятными, ' +
-        'чтобы выбор был действительно сложным. Варианты могут быть из любой сферы жизни: ' +
-        'еда, деньги, отношения, путешествия, суперспособности, нелепые ситуации и т.д. ' +
-        'Верни только текст вопроса, без кавычек и пояснений.',
-      'Сгенерируй вопрос-дилемму!',
-    );
+    const result = await generateContent(DILEMMA_SYSTEM_PROMPT, 'Сгенерируй вопрос-дилемму!');
     const question = result.trim();
     return question.length > 10 ? question : null;
   } catch {
@@ -568,19 +413,16 @@ async function fetchDilemma(): Promise<string | null> {
 }
 
 async function fetchRiddle(): Promise<Riddle | null> {
-  const { generateContent } = await import('@/ai/generateContent.js');
-
   // Try English riddles API → translate
   try {
-    const res = await fetch('https://riddles-api.vercel.app/random', {
-      signal: AbortSignal.timeout(6000),
+    const res = await fetch(API_URLS.RIDDLES, {
+      signal: AbortSignal.timeout(TIMEOUT_MEDIUM),
     });
     if (res.ok) {
       const data = (await res.json()) as { riddle: string; answer: string };
       if (data.riddle && data.answer) {
         const raw = await generateContent(
-          'Переведи загадку и ответ на русский язык. Сохрани игровой смысл и логику загадки. ' +
-            'Верни строго JSON без markdown-блоков: {"riddle":"...","answer":"..."}',
+          RIDDLE_TRANSLATE_SYSTEM_PROMPT,
           JSON.stringify({ riddle: data.riddle, answer: data.answer }),
         );
         const parsed = JSON.parse(raw.trim()) as { riddle: string; answer: string };
@@ -595,11 +437,7 @@ async function fetchRiddle(): Promise<Riddle | null> {
 
   // Fallback: AI generates a riddle in Russian directly
   try {
-    const raw = await generateContent(
-      'Придумай оригинальную, короткую загадку на русском языке. ' +
-        'Верни строго JSON без markdown-блоков: {"riddle":"текст загадки","answer":"ответ"}',
-      'Загадку!',
-    );
+    const raw = await generateContent(RIDDLE_GENERATE_SYSTEM_PROMPT, 'Загадку!');
     const parsed = JSON.parse(raw.trim()) as { riddle: string; answer: string };
     if (parsed.riddle && parsed.answer) {
       return { question: parsed.riddle, answer: parsed.answer };
@@ -613,8 +451,8 @@ async function fetchRiddle(): Promise<Riddle | null> {
 
 export async function fetchCoffeePhotoUrl(): Promise<string | null> {
   try {
-    const res = await fetch('https://coffee.alexflipnote.dev/random.json', {
-      signal: AbortSignal.timeout(6000),
+    const res = await fetch(API_URLS.COFFEE, {
+      signal: AbortSignal.timeout(TIMEOUT_MEDIUM),
     });
     if (!res.ok) return null;
     const data = (await res.json()) as { file: string };
@@ -622,6 +460,10 @@ export async function fetchCoffeePhotoUrl(): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+export function getRandomMorningGreeting(): string {
+  return MORNING_GREETINGS[Math.floor(Math.random() * MORNING_GREETINGS.length)];
 }
 
 // ─── Main export ─────────────────────────────────────────────────────────────
@@ -683,7 +525,6 @@ export async function fetchRealEventsForDate(date: Date): Promise<string> {
   const riddle = riddleResult.status === 'fulfilled' ? riddleResult.value : null;
 
   // Phase 2: fetch weather for both cities in parallel (Chelyabinsk + random place)
-  const CHELYABINSK = { name: 'Челябинск', lat: 55.1644, lon: 61.4368 };
   const [chelWeatherResult, placeWeatherResult] = await Promise.allSettled([
     fetchCompactWeather(CHELYABINSK.name, CHELYABINSK.lat, CHELYABINSK.lon),
     place ? fetchCompactWeather(place.name, place.lat, place.lon) : Promise.resolve(null),
@@ -700,7 +541,7 @@ export async function fetchRealEventsForDate(date: Date): Promise<string> {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
-    timeZone: 'Asia/Yekaterinburg',
+    timeZone: TIMEZONE,
   });
   const capitalizedDate = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
 

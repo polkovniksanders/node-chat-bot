@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import { getDailyEvents } from '@/events/events.js';
 import { fetchCoffeePhotoUrl, getRandomMorningGreeting } from '@/events/fetchRealEvents.js';
 import { bot } from '@/botInstance.js';
+import { TIMEZONE } from '@/config/constants.js';
 
 export function setupDailyEventsCron() {
   const channelId = process.env.EVENTS_CHANNEL_ID!;
@@ -24,7 +25,7 @@ export function setupDailyEventsCron() {
         console.error('❌ Failed to send morning coffee post:', err);
       }
     },
-    { timezone: 'Asia/Yekaterinburg' },
+    { timezone: TIMEZONE },
   );
 
   // 9:00 AM — main daily digest
@@ -38,7 +39,7 @@ export function setupDailyEventsCron() {
         console.error('❌ Failed to send daily events digest:', err);
       }
     },
-    { timezone: 'Asia/Yekaterinburg' },
+    { timezone: TIMEZONE },
   );
 
   console.log('⏰ Cron for daily events scheduled (8:55 coffee + 9:00 digest, Chelyabinsk time)');

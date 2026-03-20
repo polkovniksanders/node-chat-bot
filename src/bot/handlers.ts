@@ -9,7 +9,7 @@ import { checkRateLimit, recordGeneration, formatRemaining } from '@/generate/ra
 import { setupSoraHandler } from '@/bot/soraHandler.js';
 import { setupVoiceHandler } from '@/bot/voiceHandler.js';
 
-const DEFAULT_CITY = 'Челябинск';
+import { DEFAULT_CITY } from '@/config/constants.js';
 
 async function sendWeather(ctx: Context, city: string) {
   await ctx.reply(`⏳ Получаю погоду для ${city}...`);
