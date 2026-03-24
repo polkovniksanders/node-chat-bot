@@ -23,4 +23,7 @@ export const API_URLS = {
   RIDDLES: 'https://riddles-api.vercel.app/random',
   COFFEE: 'https://coffee.alexflipnote.dev/random.json',
   BYABBE: 'https://byabbe.se/on-this-day',
+  MOEX_SBER: 'https://iss.moex.com/iss/engines/stock/markets/shares/boards/TQBR/securities/SBER.json',
+  COINGECKO_BTC: 'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd',
+  FEAR_GREED: 'https://api.alternative.me/fng/?limit=1',
 } as const;

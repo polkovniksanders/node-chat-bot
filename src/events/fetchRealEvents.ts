@@ -49,6 +49,9 @@ import type {
   CdfRate,
   SunTimes,
   Riddle,
+  InvestmentResult,
+  InvestmentAsset,
+  FearGreedIndex,
 } from '@/types/index.js';
 
 // ─── Translation helper ──────────────────────────────────────────────────────
@@ -449,6 +452,126 @@ async function fetchRiddle(): Promise<Riddle | null> {
   return null;
 }
 
+// ─── Investment returns (hypothetical 1000 RUB in each asset on 01.01.2015) ──
+//
+// Historical prices on 01.01.2015:
+//   SBER:    ~65.00 RUB/share (Moscow Exchange)
+//   USD/RUB: ~56.24 RUB per 1 USD (CBR rate)
+//   BTC:     ~320 USD per 1 BTC → at 56.24 = ~17 997 RUB per BTC
+//
+// Live prices:
+//   SBER  — MOEX ISS API (free, official)
+//   USD   — already in cbrRates (fetched separately); passed as argument
+//   BTC   — CoinGecko (free, no auth)
+
+const INVEST_AMOUNT = 1000; // RUB each
+
+const SBER_PRICE_2015 = 65.0;       // RUB per share
+const USD_RUB_2015    = 56.24;      // RUB per 1 USD
+const BTC_USD_2015    = 320.0;      // USD per 1 BTC
+
+async function fetchSberPrice(): Promise<number | null> {
+  try {
+    const res = await fetch(API_URLS.MOEX_SBER, {
+      signal: AbortSignal.timeout(TIMEOUT_LONG),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as any;
+    // MOEX ISS returns marketdata block; LAST is the last trade price
+    const cols: string[] = data?.marketdata?.columns ?? [];
+    const rows: any[][]  = data?.marketdata?.data ?? [];
+    const lastIdx = cols.indexOf('LAST');
+    if (lastIdx === -1 || !rows[0]) return null;
+    const price = rows[0][lastIdx];
+    return typeof price === 'number' && price > 0 ? price : null;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchBtcUsd(): Promise<number | null> {
+  try {
+    const res = await fetch(API_URLS.COINGECKO_BTC, {
+      signal: AbortSignal.timeout(TIMEOUT_LONG),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { bitcoin?: { usd?: number } };
+    const price = data?.bitcoin?.usd;
+    return typeof price === 'number' && price > 0 ? price : null;
+  } catch {
+    return null;
+  }
+}
+
+// Русские метки для классификаций alternative.me
+const FEAR_GREED_LABELS: Record<string, string> = {
+  'Extreme Fear':  'Экстремальный страх 😱',
+  'Fear':          'Страх 😨',
+  'Neutral':       'Нейтрально 😐',
+  'Greed':         'Жадность 🤑',
+  'Extreme Greed': 'Экстремальная жадность 🚀',
+};
+
+async function fetchFearGreedIndex(): Promise<FearGreedIndex | null> {
+  try {
+    const res = await fetch(API_URLS.FEAR_GREED, {
+      signal: AbortSignal.timeout(TIMEOUT_MEDIUM),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { data?: Array<{ value: string; value_classification: string }> };
+    const item = data?.data?.[0];
+    if (!item) return null;
+    const value = parseInt(item.value, 10);
+    if (isNaN(value)) return null;
+    return { value, classification: item.value_classification };
+  } catch {
+    return null;
+  }
+}
+
+async function fetchInvestmentReturns(usdRub: number | null): Promise<InvestmentResult> {
+  const [sberPrice, btcUsd] = await Promise.all([fetchSberPrice(), fetchBtcUsd()]);
+
+  const sberUnits = INVEST_AMOUNT / SBER_PRICE_2015;
+  const usdUnits  = INVEST_AMOUNT / USD_RUB_2015;
+  const btcRub2015 = BTC_USD_2015 * USD_RUB_2015;
+  const btcUnits  = INVEST_AMOUNT / btcRub2015;
+
+  const currentUsdRub = usdRub; // passed from already-fetched CBR rates
+
+  const assets: InvestmentAsset[] = [
+    {
+      name: 'Сбербанк (SBER)',
+      emoji: '🏦',
+      invested: INVEST_AMOUNT,
+      unitsBase: sberUnits,
+      currentValueRub: sberPrice !== null ? sberUnits * sberPrice : null,
+      error: sberPrice === null,
+    },
+    {
+      name: 'Доллар США (USD)',
+      emoji: '💵',
+      invested: INVEST_AMOUNT,
+      unitsBase: usdUnits,
+      currentValueRub: currentUsdRub !== null ? usdUnits * currentUsdRub : null,
+      error: currentUsdRub === null,
+    },
+    {
+      name: 'Биткоин (BTC)',
+      emoji: '₿',
+      invested: INVEST_AMOUNT,
+      unitsBase: btcUnits,
+      currentValueRub: btcUsd !== null && currentUsdRub !== null ? btcUnits * btcUsd * currentUsdRub : null,
+      error: btcUsd === null || currentUsdRub === null,
+    },
+  ];
+
+  return {
+    assets,
+    hasErrors: assets.some((a) => a.error),
+  };
+}
+
 export async function fetchCoffeePhotoUrl(): Promise<string | null> {
   try {
     const res = await fetch(API_URLS.COFFEE, {
@@ -507,6 +630,14 @@ export async function fetchRealEventsForDate(date: Date): Promise<string> {
     fetchDilemma(),
     fetchRiddle(),
   ]);
+
+  const cbrRatesEarly = cbrRatesResult.status === 'fulfilled' ? cbrRatesResult.value : [];
+  const usdRubNow = cbrRatesEarly.find((r) => r.code === 'USD')?.valueRub ?? null;
+  const [investmentResult, fearGreedResult] = await Promise.all([
+    fetchInvestmentReturns(usdRubNow),
+    fetchFearGreedIndex(),
+  ]);
+  const fearGreed = fearGreedResult;
 
   const isDayOff = isDayOffResult.status === 'fulfilled' ? isDayOffResult.value : null;
   const officialHolidays = holidaysResult.status === 'fulfilled' ? holidaysResult.value : [];
@@ -652,6 +783,44 @@ export async function fetchRealEventsForDate(date: Date): Promise<string> {
     text += `\n<b>──────────────</b>\n`;
     text += `\n🧩 <b>Загадка дня:</b>\n${riddle.question}\n\n`;
     text += `<tg-spoiler>💡 Ответ: ${riddle.answer}</tg-spoiler>\n`;
+  }
+
+  // ── Инвест-машина времени ─────────────────────────────────────────────────
+  {
+    text += `\n<b>──────────────</b>\n`;
+    text += `\n📈 <b>Машина времени инвестора</b> 😜 <b>Упущенная выгода</b>\n`;
+    text += `<i>Что было бы, если 1 января 2015 года вложить по 1000 ₽ в каждый актив?</i>\n\n`;
+
+    if (investmentResult.assets.every((a) => a.error)) {
+      text += `😅 Извините, все бесплатные API сегодня бастуют — владелец бота не олигарх, платные подключить не может. Попробуем завтра!\n`;
+    } else {
+      for (const asset of investmentResult.assets) {
+        if (asset.error) {
+          text += `${asset.emoji} <b>${asset.name}:</b> 🤷 API не ответил — видимо, биржа тоже не работает бесплатно\n`;
+        } else {
+          const current = asset.currentValueRub!;
+          const profit = current - asset.invested;
+          const pct = ((profit / asset.invested) * 100).toFixed(1);
+          const sign = profit >= 0 ? '+' : '';
+          const arrow = profit >= 0 ? '📈' : '📉';
+          const currentStr = current.toLocaleString('ru-RU', { maximumFractionDigits: 0 });
+          const profitStr = Math.abs(profit).toLocaleString('ru-RU', { maximumFractionDigits: 0 });
+          const profitWord = profit >= 0 ? 'прибыль' : 'убыток';
+          text += `${asset.emoji} <b>${asset.name}:</b> ${currentStr} ₽ ${arrow}\n`;
+          text += `   ${sign}${profitStr} ₽ (${sign}${pct}%) — ${profitWord} за ~10 лет\n`;
+        }
+      }
+
+      if (investmentResult.hasErrors) {
+        text += `\n<i>* Часть данных недоступна — бесплатные API иногда капризничают, как кот Степка в понедельник 🐱</i>\n`;
+      }
+    }
+
+    if (fearGreed) {
+      const label = FEAR_GREED_LABELS[fearGreed.classification] ?? fearGreed.classification;
+      text += `\n😱🤑 <b>Индекс страха и жадности крипторынка:</b> ${fearGreed.value}/100 — ${label}\n`;
+      text += `<i>0 = все в панике и продают, 100 = все в эйфории и покупают. Помогает понять настроение рынка.</i>\n`;
+    }
   }
 
   text = text.trimEnd();

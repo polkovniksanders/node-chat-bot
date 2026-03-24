@@ -65,3 +65,22 @@ export interface Riddle {
   question: string;
   answer: string;
 }
+
+export interface InvestmentAsset {
+  name: string;
+  emoji: string;
+  invested: number;        // RUB invested in 2015
+  unitsBase: number;       // units purchased at 2015 price
+  currentValueRub: number | null;
+  error: boolean;
+}
+
+export interface InvestmentResult {
+  assets: InvestmentAsset[];
+  hasErrors: boolean;
+}
+
+export interface FearGreedIndex {
+  value: number;       // 0–100
+  classification: string; // e.g. "Fear", "Greed"
+}
