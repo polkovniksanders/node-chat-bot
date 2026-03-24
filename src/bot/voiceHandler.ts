@@ -40,17 +40,18 @@ export function setupVoiceHandler(botInstance: Bot) {
     await handleTranscription(ctx, ctx.message.voice.file_id);
   });
 
-  // /transcribe в ответ на войс — работает в группах и личке
-  botInstance.command('transcribe', async (ctx) => {
+  // /transcribe (/t) в ответ на войс — работает в группах и личке
+  const transcribeHandler = async (ctx: Context) => {
     const voice =
       ctx.message?.reply_to_message?.voice ??
       (ctx.message?.external_reply as any)?.voice;
     if (!voice) {
-      const msg = ctx.message as any;
-      const debug = `rtr_keys: ${msg?.reply_to_message ? Object.keys(msg.reply_to_message).join(',') : 'none'} | ext: ${msg?.external_reply ? Object.keys(msg.external_reply).join(',') : 'none'}`;
-      await ctx.reply(debug);
+      await ctx.reply('Ответьте этой командой на голосовое сообщение, чтобы расшифровать его.');
       return;
     }
     await handleTranscription(ctx, voice.file_id);
-  });
+  };
+
+  botInstance.command('transcribe', transcribeHandler);
+  botInstance.command('t', transcribeHandler);
 }
