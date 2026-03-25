@@ -109,6 +109,22 @@ export const MORNING_GREETINGS = [
   '🌿 Хорошего утра!\nКофе — это лучшее начало дня ☕ Дайджест совсем скоро 📰',
 ];
 
+// ─── Investment: hypothetical 1000 RUB in each asset on 01.01.2015 ───────────
+
+export const INVEST_AMOUNT = 1000; // RUB each
+
+export const SBER_PRICE_2015 = 65.0;  // RUB per share
+export const USD_RUB_2015    = 56.24; // RUB per 1 USD
+export const BTC_USD_2015    = 320.0; // USD per 1 BTC
+
+export const FEAR_GREED_LABELS: Record<string, string> = {
+  'Extreme Fear':  'Экстремальный страх 😱',
+  'Fear':          'Страх 😨',
+  'Neutral':       'Нейтрально 😐',
+  'Greed':         'Жадность 🤑',
+  'Extreme Greed': 'Экстремальная жадность 🚀',
+};
+
 // Month names in transliteration for kakoysegodnyaprazdnik.ru URLs
 export const MONTH_TRANSLITS: Record<number, string> = {
   1: 'yanvar',

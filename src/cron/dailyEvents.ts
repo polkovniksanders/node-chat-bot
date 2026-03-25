@@ -2,7 +2,7 @@ import cron from 'node-cron';
 import { getDailyEvents } from '@/events/events.js';
 import { fetchCoffeePhotoUrl, getRandomMorningGreeting } from '@/events/fetchRealEvents.js';
 import { bot } from '@/botInstance.js';
-import { TIMEZONE } from '@/config/constants.js';
+import { TIMEZONE, TEST_CHANNEL } from '@/config/constants.js';
 
 export function setupDailyEventsCron() {
   const channelId = process.env.EVENTS_CHANNEL_ID!;
@@ -22,7 +22,8 @@ export function setupDailyEventsCron() {
           await bot.api.sendMessage(channelId, `☕ ${greeting}`, { parse_mode: 'HTML' });
         }
       } catch (err) {
-        console.error('❌ Failed to send morning coffee post:', err);
+        const msg = `❌ Ошибка кофе-поста (8:55).\n\n${err instanceof Error ? err.message : err}`;
+        await bot.api.sendMessage(TEST_CHANNEL, msg).catch(() => {});
       }
     },
     { timezone: TIMEZONE },
@@ -36,7 +37,8 @@ export function setupDailyEventsCron() {
         const events = await getDailyEvents();
         await bot.api.sendMessage(channelId, events.text, { parse_mode: 'HTML' });
       } catch (err) {
-        console.error('❌ Failed to send daily events digest:', err);
+        const msg = `❌ Ошибка дайджеста событий (9:00).\n\n${err instanceof Error ? err.message : err}`;
+        await bot.api.sendMessage(TEST_CHANNEL, msg).catch(() => {});
       }
     },
     { timezone: TIMEZONE },

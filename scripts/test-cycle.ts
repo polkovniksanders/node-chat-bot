@@ -5,14 +5,13 @@
 
 import 'dotenv/config';
 import { InputFile } from 'grammy';
-import { bot } from '@/botInstance.js';
-import { getNewsDigestEmoji } from '@/news/news.js';
-import { getAnimalMoviePost } from '@/content/animalMovies.js';
-import { getYoutubeVideoPost } from '@/content/youtubeVideos.js';
-import { generatePetNamesPost } from '@/content/petNames.js';
-import { generateAnimalStoryPost } from '@/content/animalStory.js';
-
-const TEST_CHANNEL = '@node_js_test';
+import { bot } from '../src/botInstance.js';
+import { getNewsDigestEmoji } from '../src/news/news.js';
+import { getAnimalMoviePost } from '../src/content/animalMovies.js';
+import { getYoutubeVideoPost } from '../src/content/youtubeVideos.js';
+import { generatePetNamesPost } from '../src/content/petNames.js';
+import { generateAnimalStoryPost } from '../src/content/animalStory.js';
+import { TEST_CHANNEL } from '../src/config/constants.js';
 
 async function send(text: string, image?: Buffer | null) {
   if (image) {

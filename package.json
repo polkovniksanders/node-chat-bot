@@ -14,9 +14,9 @@
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
-    "test-cycle": "tsx src/test-cycle.ts",
-    "test-events": "tsx src/test-events.ts",
-    "test-investments": "tsx src/test-investments.ts"
+    "test-cycle": "tsx scripts/test-cycle.ts",
+    "test-events": "tsx scripts/test-events-digest.ts",
+    "test-investments": "tsx scripts/test-investments.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

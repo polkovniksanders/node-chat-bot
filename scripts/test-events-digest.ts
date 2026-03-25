@@ -4,10 +4,9 @@
  */
 
 import 'dotenv/config';
-import { bot } from '@/botInstance.js';
-import { getDailyEvents } from '@/events/events.js';
-
-const TEST_CHANNEL = '@node_js_test';
+import { bot } from '../src/botInstance.js';
+import { getDailyEvents } from '../src/events/events.js';
+import { TEST_CHANNEL } from '../src/config/constants.js';
 
 async function main() {
   console.log('🧪 Генерирую дайджест событий...');
