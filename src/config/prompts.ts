@@ -1,4 +1,5 @@
 import type { HistoryEntry, NewsParams } from '@/news/news-history.js';
+import type { RegisteredUser } from '@/config/users.js';
 
 // ─── Shared persona (единственное место правки лора Стёпы) ───────────────────
 
@@ -195,6 +196,48 @@ export const RIDDLE_GENERATE_SYSTEM_PROMPT =
   'Верни ТОЛЬКО валидный JSON без markdown-блоков: {"riddle": "текст загадки", "answer": "ответ"}';
 
 // ─── Dilemma (fetchRealEvents) ────────────────────────────────────────────────
+
+// ─── User context for chat replies ───────────────────────────────────────────
+
+export function buildUserContextBlock(user: RegisteredUser, memories: string[]): string {
+  const parts = [`## Пользователь\nИмя: ${user.firstName}\nО нём: ${user.description}`];
+  if (memories.length > 0) {
+    parts.push('## Личная память пользователя\n' + memories.map((m) => `- ${m}`).join('\n'));
+  }
+  return parts.join('\n\n') + '\n\n';
+}
+
+export function buildCoffeeGreetingPrompt(user: RegisteredUser, memories: string[]): string {
+  const memBlock =
+    memories.length > 0 ? `\nЧто ты помнишь о нём:\n${memories.map((m) => `- ${m}`).join('\n')}` : '';
+  return `Ты — кот Стёпа. Утром шлёшь фото кофе в общий чат.
+${STEPKA_PERSONA}
+
+Напиши 1–2 предложения лично для ${user.firstName}: вопрос, наблюдение или лёгкое подначивание — в духе кота который знает человека достаточно хорошо.
+О ${user.firstName}: ${user.description}${memBlock}
+
+Требования:
+- Обращайся по имени (${user.firstName})
+- Заканчивай вопросом или намёком на диалог
+- Без markdown, только текст
+- 1–2 предложения максимум`;
+}
+
+export function buildDailyDialoguePrompt(user: RegisteredUser, memories: string[]): string {
+  const memBlock =
+    memories.length > 0 ? `\nЧто ты помнишь о нём:\n${memories.map((m) => `- ${m}`).join('\n')}` : '';
+  return `Ты — кот Стёпа. Пишешь в общий чат и обращаешься к ${user.firstName}.
+${STEPKA_PERSONA}
+
+О ${user.firstName}: ${user.description}${memBlock}
+
+Напиши 1–3 предложения: вопрос, наблюдение или шутку связанную с тем что ты знаешь об этом человеке. Можешь упомянуть что-то из его жизни, привычек или недавних событий.
+
+Требования:
+- Начни с имени или упоминания (не с @)
+- Без markdown, только текст
+- Тон: ироничный кот, но не злой`;
+}
 
 export const DILEMMA_SYSTEM_PROMPT =
   'Ты генерируешь вопрос-дилемму для Telegram-канала. ' +

@@ -1,6 +1,6 @@
 import { Context, InputFile } from 'grammy';
 import { bot } from '@/botInstance.js';
-import { generateReply } from '@/ai/generateReply.js';
+import { generateReply, maybeRememberFact } from '@/ai/generateReply.js';
 import { getDailyEvents } from '@/events/events.js';
 import { fetchWeather } from '@/weather/fetch-weather.js';
 import { formatWeather } from '@/weather/formatter.js';
@@ -8,6 +8,11 @@ import { generateImage } from '@/generate/generate-image.js';
 import { checkRateLimit, recordGeneration, formatRemaining } from '@/generate/rate-limiter.js';
 import { setupSoraHandler } from '@/bot/soraHandler.js';
 import { setupVoiceHandler } from '@/bot/voiceHandler.js';
+import { findUserById } from '@/config/users.js';
+import { loadUserMemory } from '@/context/userMemory.js';
+import { buildUserContextBlock } from '@/config/prompts.js';
+import { downloadVoice } from '@/bot/voiceUtils.js';
+import { transcribeAudio } from '@/ai/transcribe.js';
 
 import { DEFAULT_CITY } from '@/config/constants.js';
 
@@ -103,5 +108,53 @@ export function setupHandlers(botInstance: typeof bot) {
     // Обычный чат с ИИ
     const reply = await generateReply(ctx.from.id, text);
     await ctx.reply(reply);
+    await maybeRememberFact(ctx.from.id, text);
+  });
+
+  // Текстовые сообщения в группе — только если бот @упомянут
+  botInstance.on('message:text', async (ctx) => {
+    if (ctx.chat.type === 'private') return;
+
+    const botUsername = ctx.me.username;
+    const mentioned = ctx.message.entities?.some(
+      (e) =>
+        e.type === 'mention' &&
+        ctx.message.text.slice(e.offset + 1, e.offset + e.length) === botUsername,
+    );
+    if (!mentioned) return;
+
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    let userText = ctx.message.text;
+
+    // Если ответ на голосовое с @упоминанием → расшифровать + ответить
+    const repliedVoice = ctx.message.reply_to_message?.voice;
+    if (repliedVoice) {
+      try {
+        const buffer = await downloadVoice(ctx, repliedVoice.file_id);
+        const transcription = await transcribeAudio(buffer);
+        if (transcription) {
+          userText = transcription;
+          await ctx.reply(`🗣 <b>Расшифровка:</b>\n${transcription}`, {
+            parse_mode: 'HTML',
+            reply_parameters: { message_id: ctx.message.reply_to_message!.message_id },
+          });
+        }
+      } catch (err) {
+        console.error('Voice transcription error in group:', err);
+      }
+    }
+
+    const user = findUserById(userId);
+    const memories = user ? await loadUserMemory(userId) : [];
+    const extraSystemContext = user ? buildUserContextBlock(user, memories) : undefined;
+
+    const reply = await generateReply(userId, userText, { extraSystemContext });
+    await ctx.reply(reply, {
+      reply_parameters: { message_id: ctx.message.message_id },
+    });
+
+    await maybeRememberFact(userId, userText);
   });
 }
