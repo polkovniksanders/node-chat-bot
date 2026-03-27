@@ -8,6 +8,7 @@ import { generateImage } from '@/generate/generate-image.js';
 import { checkRateLimit, recordGeneration, formatRemaining } from '@/generate/rate-limiter.js';
 import { setupSoraHandler } from '@/bot/soraHandler.js';
 import { setupVoiceHandler } from '@/bot/voiceHandler.js';
+import { setupSayHandler } from '@/bot/sayHandler.js';
 import { findUserById } from '@/config/users.js';
 import { loadUserMemory } from '@/context/userMemory.js';
 import { buildUserContextBlock } from '@/config/prompts.js';
@@ -30,6 +31,7 @@ async function sendWeather(ctx: Context, city: string) {
 
 export function setupHandlers(botInstance: typeof bot) {
   setupSoraHandler();
+  setupSayHandler();
   setupVoiceHandler(botInstance);
 
   botInstance.command('events', async (ctx) => {
