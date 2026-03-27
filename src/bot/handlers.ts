@@ -113,26 +113,40 @@ export function setupHandlers(botInstance: typeof bot) {
     await maybeRememberFact(ctx.from.id, text);
   });
 
-  // Текстовые сообщения в группе — только если бот @упомянут
+  // Трекинг активного пользователя в группе: chatId → userId
+  // Диалог считается активным пока идут reply-цепочки
+  const activeGroupUser = new Map<number, number>();
+
+  // Текстовые сообщения в группе — только reply на сообщение бота
   botInstance.on('message:text', async (ctx) => {
     if (ctx.chat.type === 'private') return;
 
     const botUsername = ctx.me.username;
-    const mentioned = ctx.message.entities?.some(
-      (e) =>
-        e.type === 'mention' &&
-        ctx.message.text.slice(e.offset + 1, e.offset + e.length) === botUsername,
-    );
     const isReplyToBot =
       ctx.message.reply_to_message?.from?.username === botUsername;
-    if (!mentioned && !isReplyToBot) return;
+    if (!isReplyToBot) return;
 
     const userId = ctx.from?.id;
     if (!userId) return;
 
+    const chatId = ctx.chat.id;
+    const currentActiveUser = activeGroupUser.get(chatId);
+
+    // Если уже идёт диалог с другим пользователем — вежливо отказать
+    if (currentActiveUser && currentActiveUser !== userId) {
+      await ctx.reply(
+        'Мурр... Прошу прощения, я сейчас веду беседу с другим человеком. Напишите мне чуть позже — я обязательно отвечу. 🐾',
+        { reply_parameters: { message_id: ctx.message.message_id } },
+      );
+      return;
+    }
+
+    // Устанавливаем текущего пользователя как активного
+    activeGroupUser.set(chatId, userId);
+
     let userText = ctx.message.text;
 
-    // Если ответ на голосовое с @упоминанием → расшифровать + ответить
+    // Если ответ на голосовое → расшифровать + ответить
     const repliedVoice = ctx.message.reply_to_message?.voice;
     if (repliedVoice) {
       try {
@@ -160,5 +174,12 @@ export function setupHandlers(botInstance: typeof bot) {
     });
 
     await maybeRememberFact(userId, userText);
+
+    // Сбрасываем активного пользователя через 10 минут бездействия
+    setTimeout(() => {
+      if (activeGroupUser.get(chatId) === userId) {
+        activeGroupUser.delete(chatId);
+      }
+    }, 10 * 60 * 1000);
   });
 }

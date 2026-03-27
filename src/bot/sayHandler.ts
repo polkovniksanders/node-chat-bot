@@ -1,5 +1,5 @@
 import { bot } from '@/botInstance.js';
-import { getRandomUser } from '@/config/users.js';
+import { getRandomUser, findUserById, REGISTERED_USERS } from '@/config/users.js';
 import { loadUserMemory } from '@/context/userMemory.js';
 import { buildDailyDialoguePrompt } from '@/config/prompts.js';
 import { gptunnelChat } from '@/ai/gptunnel.js';
@@ -22,7 +22,27 @@ export function setupSayHandler(): void {
       return;
     }
 
-    const user = getRandomUser();
+    // Парсим аргумент: /say @username или /say 123456789
+    const arg = ctx.match.trim();
+    let user;
+    if (arg) {
+      const usernameMatch = arg.match(/^@?(\w+)$/);
+      const numericId = parseInt(arg, 10);
+      if (!isNaN(numericId)) {
+        user = findUserById(numericId);
+      } else if (usernameMatch) {
+        const uname = usernameMatch[1].toLowerCase();
+        user = REGISTERED_USERS.find((u) => u.username?.toLowerCase() === uname);
+      }
+      if (!user) {
+        await ctx.reply(`❌ Пользователь «${arg}» не найден.\n\nЗарегистрированные пользователи:\n` +
+          REGISTERED_USERS.map((u) => `• ${u.firstName} — @${u.username ?? '—'} (${u.id})`).join('\n'));
+        return;
+      }
+    } else {
+      user = getRandomUser();
+    }
+
     if (!user) {
       await ctx.reply('❌ Нет зарегистрированных пользователей.');
       return;
