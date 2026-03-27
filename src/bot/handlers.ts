@@ -123,7 +123,9 @@ export function setupHandlers(botInstance: typeof bot) {
         e.type === 'mention' &&
         ctx.message.text.slice(e.offset + 1, e.offset + e.length) === botUsername,
     );
-    if (!mentioned) return;
+    const isReplyToBot =
+      ctx.message.reply_to_message?.from?.username === botUsername;
+    if (!mentioned && !isReplyToBot) return;
 
     const userId = ctx.from?.id;
     if (!userId) return;
