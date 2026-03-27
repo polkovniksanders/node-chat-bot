@@ -122,8 +122,15 @@ export function setupHandlers(botInstance: typeof bot) {
     if (ctx.chat.type === 'private') return;
 
     const botUsername = ctx.me.username;
-    const isReplyToBot =
-      ctx.message.reply_to_message?.from?.username === botUsername;
+    const replyFrom = ctx.message.reply_to_message?.from;
+    const isReplyToBot = replyFrom?.username === botUsername;
+    console.log('[group msg]', {
+      from: ctx.from?.username,
+      replyFromUsername: replyFrom?.username,
+      replyFromIsBot: replyFrom?.is_bot,
+      botUsername,
+      isReplyToBot,
+    });
     if (!isReplyToBot) return;
 
     const userId = ctx.from?.id;
