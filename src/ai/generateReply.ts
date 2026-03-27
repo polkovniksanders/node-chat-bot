@@ -66,10 +66,12 @@ export async function maybeRememberFact(userId: number, userMessage: string): Pr
     ]);
 
     const trimmed = response.trim();
+    console.log('[maybeRememberFact] response:', JSON.stringify(trimmed));
     if (trimmed.startsWith('YES:')) {
       const fact = trimmed.slice(4).trim();
       if (fact) {
         await saveUserMemory(userId, fact);
+        console.log('[maybeRememberFact] saved:', fact, 'for userId:', userId);
         return true;
       }
     }
