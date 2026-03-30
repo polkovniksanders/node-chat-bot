@@ -1,6 +1,13 @@
 import cron from 'node-cron';
-import { getDailyEvents } from '@/events/events.js';
-import { fetchCoffeePhotoUrl, getRandomMorningGreeting } from '@/events/fetchRealEvents.js';
+import {
+  fetchCoffeePhotoUrl,
+  getRandomMorningGreeting,
+  fetchMorningHeaderForDate,
+  fetchDailyFactsForDate,
+  fetchFinancePost,
+} from '@/events/fetchRealEvents.js';
+import { fetchTrackOfDay, buildTrackMessage } from '@/events/fetchers/trackOfDay.js';
+import { fetchMovieOfDay } from '@/events/fetchers/movieOfDay.js';
 import { bot } from '@/botInstance.js';
 import { TIMEZONE, TEST_CHANNEL } from '@/config/constants.js';
 import { getRandomUser } from '@/config/users.js';
@@ -11,12 +18,20 @@ import { gptunnelChat } from '@/ai/gptunnel.js';
 export function setupDailyEventsCron() {
   const channelId = process.env.EVENTS_CHANNEL_ID!;
 
-  // 8:55 AM — coffee photo with morning greeting (5 min before the digest)
+  // 8:55 AM — coffee photo + date + holidays + personal greeting
   cron.schedule(
     '55 8 * * *',
     async () => {
       try {
-        const coffeeUrl = await fetchCoffeePhotoUrl();
+        const now = new Date(
+          new Date().toLocaleString('en-US', { timeZone: 'Asia/Yekaterinburg' }),
+        );
+
+        const [coffeeUrl, headerText] = await Promise.all([
+          fetchCoffeePhotoUrl(),
+          fetchMorningHeaderForDate(now),
+        ]);
+
         const greeting = getRandomMorningGreeting();
 
         // Персональное обращение к случайному пользователю
@@ -35,16 +50,14 @@ export function setupDailyEventsCron() {
             }
           } catch (err) {
             console.error('Personal greeting error:', err);
-            // Тихо пропускаем — базовое приветствие отправится без личного блока
           }
         }
 
-        const caption = (greeting + personalGreeting).slice(0, 1020);
+        const caption = `${headerText}\n\n${greeting}${personalGreeting}`.slice(0, 1020);
 
         if (coffeeUrl) {
-          await bot.api.sendPhoto(channelId, coffeeUrl, { caption });
+          await bot.api.sendPhoto(channelId, coffeeUrl, { caption, parse_mode: 'HTML' });
         } else {
-          // No photo available — send greeting as text only
           await bot.api.sendMessage(channelId, `☕ ${caption}`, { parse_mode: 'HTML' });
         }
       } catch (err) {
@@ -55,15 +68,59 @@ export function setupDailyEventsCron() {
     { timezone: TIMEZONE },
   );
 
-  // 9:00 AM — main daily digest
+  // 9:00 AM — place + weather + facts + births + riddle + dilemma
   cron.schedule(
     '0 9 * * *',
     async () => {
       try {
-        const events = await getDailyEvents();
-        await bot.api.sendMessage(channelId, events.text, { parse_mode: 'HTML' });
+        const now = new Date(
+          new Date().toLocaleString('en-US', { timeZone: 'Asia/Yekaterinburg' }),
+        );
+        const text = await fetchDailyFactsForDate(now);
+        await bot.api.sendMessage(channelId, text, { parse_mode: 'HTML' });
       } catch (err) {
-        const msg = `❌ Ошибка дайджеста событий (9:00).\n\n${err instanceof Error ? err.message : err}`;
+        const msg = `❌ Ошибка дайджеста (9:00).\n\n${err instanceof Error ? err.message : err}`;
+        await bot.api.sendMessage(TEST_CHANNEL, msg).catch(() => {});
+      }
+    },
+    { timezone: TIMEZONE },
+  );
+
+  // 9:05 AM — currency + investments + fear&greed
+  cron.schedule(
+    '5 9 * * *',
+    async () => {
+      try {
+        const text = await fetchFinancePost();
+        await bot.api.sendMessage(channelId, text, { parse_mode: 'HTML' });
+      } catch (err) {
+        const msg = `❌ Ошибка финансового поста (9:05).\n\n${err instanceof Error ? err.message : err}`;
+        await bot.api.sendMessage(TEST_CHANNEL, msg).catch(() => {});
+      }
+    },
+    { timezone: TIMEZONE },
+  );
+
+  // 9:10 AM — track of the day + movie of the day (one post)
+  cron.schedule(
+    '10 9 * * *',
+    async () => {
+      try {
+        const [trackResult, movieResult] = await Promise.allSettled([
+          fetchTrackOfDay().then(buildTrackMessage),
+          fetchMovieOfDay(),
+        ]);
+
+        const trackText = trackResult.status === 'fulfilled' ? trackResult.value : null;
+        const movieText = movieResult.status === 'fulfilled' ? movieResult.value : null;
+
+        const parts = [trackText, movieText].filter(Boolean);
+        if (parts.length === 0) return;
+
+        const message = parts.join('\n\n<b>──────────────</b>\n\n');
+        await bot.api.sendMessage(channelId, message, { parse_mode: 'HTML' });
+      } catch (err) {
+        const msg = `❌ Ошибка трека/фильма (9:10).\n\n${err instanceof Error ? err.message : err}`;
         await bot.api.sendMessage(TEST_CHANNEL, msg).catch(() => {});
       }
     },
@@ -106,6 +163,6 @@ export function setupDailyEventsCron() {
   );
 
   console.log(
-    '⏰ Cron for daily events scheduled (8:55 coffee + 9:00 digest + 10:00 dialogues, Chelyabinsk time)',
+    '⏰ Cron scheduled: 8:55 coffee+date | 9:00 facts | 9:05 finance | 9:10 track+movie | 10:00 dialogues (Chelyabinsk)',
   );
 }
