@@ -110,7 +110,8 @@ export function setupHandlers(botInstance: typeof bot) {
     // Обычный чат с ИИ
     const reply = await generateReply(ctx.from.id, text);
     await ctx.reply(reply);
-    await maybeRememberFact(ctx.from.id, text);
+    const remembered = await maybeRememberFact(ctx.from.id, text);
+    if (remembered) await ctx.reply('🐾 Запомнил!');
   });
 
   // Трекинг активного пользователя в группе: chatId → userId
@@ -123,15 +124,23 @@ export function setupHandlers(botInstance: typeof bot) {
 
     const botUsername = ctx.me.username;
     const replyFrom = ctx.message.reply_to_message?.from;
+    const replySenderChat = (ctx.message.reply_to_message as any)?.sender_chat;
+    const channelUsername = process.env.CHANNEL_ID?.replace('@', '');
     const isReplyToBot = replyFrom?.username === botUsername;
+    const isReplyToChannel =
+      replySenderChat?.username === channelUsername ||
+      replySenderChat?.username === botUsername;
     console.log('[group msg]', {
       from: ctx.from?.username,
       replyFromUsername: replyFrom?.username,
       replyFromIsBot: replyFrom?.is_bot,
+      replySenderChatUsername: replySenderChat?.username,
       botUsername,
+      channelUsername,
       isReplyToBot,
+      isReplyToChannel,
     });
-    if (!isReplyToBot) return;
+    if (!isReplyToBot && !isReplyToChannel) return;
 
     const userId = ctx.from?.id;
     if (!userId) return;
@@ -180,7 +189,12 @@ export function setupHandlers(botInstance: typeof bot) {
       reply_parameters: { message_id: ctx.message.message_id },
     });
 
-    await maybeRememberFact(userId, userText);
+    const remembered = await maybeRememberFact(userId, userText);
+    if (remembered) {
+      await ctx.reply('🐾 Запомнил!', {
+        reply_parameters: { message_id: ctx.message.message_id },
+      });
+    }
 
     // Сбрасываем активного пользователя через 10 минут бездействия
     setTimeout(() => {
