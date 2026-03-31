@@ -90,40 +90,32 @@ export function setupHandlers(botInstance: typeof bot) {
     }
   });
 
-  // Текстовые сообщения — только в личке
+  // Текстовые сообщения — личка и группы
   botInstance.on('message:text', async (ctx) => {
-    if (ctx.chat.type !== 'private') return;
-
-    const text = ctx.message.text.trim();
-
-    // Игнорируем команды (начинаются с /) — их обрабатывают отдельные хэндлеры
-    if (text.startsWith('/')) return;
-
-    // "погода [город]" — альтернатива /weather для личных сообщений
-    const weatherMatch = text.match(/^погода\s*(.*)/i);
-    if (weatherMatch) {
-      await sendWeather(ctx, weatherMatch[1].trim() || DEFAULT_CITY);
-      return;
-    }
-
-    // Обычный чат с ИИ
-    const reply = await generateReply(ctx.chat.id, ctx.from.id, text);
-    await ctx.reply(reply, { parse_mode: 'HTML' });
-    const remembered = await maybeRememberFact(ctx.from.id, text);
-    if (remembered) await ctx.reply('🐾 Запомнил!');
-  });
-
-  // Текстовые сообщения в группе — reply на бота, reply на пост канала, или @упоминание
-  botInstance.on('message:text', async (ctx) => {
-    if (ctx.chat.type === 'private') return;
-
-    const userId = ctx.from?.id;
-    if (!userId) return;
-
-    const messageText = ctx.message.text;
+    const messageText = ctx.message.text.trim();
 
     // Игнорируем команды
     if (messageText.startsWith('/')) return;
+
+    if (ctx.chat.type === 'private') {
+      // "погода [город]" — альтернатива /weather для личных сообщений
+      const weatherMatch = messageText.match(/^погода\s*(.*)/i);
+      if (weatherMatch) {
+        await sendWeather(ctx, weatherMatch[1].trim() || DEFAULT_CITY);
+        return;
+      }
+
+      // Обычный чат с ИИ
+      const reply = await generateReply(ctx.chat.id, ctx.from.id, messageText);
+      await ctx.reply(reply, { parse_mode: 'HTML' });
+      const remembered = await maybeRememberFact(ctx.from.id, messageText);
+      if (remembered) await ctx.reply('🐾 Запомнил!');
+      return;
+    }
+
+    // Группы: reply на бота, reply на пост канала, или @упоминание
+    const userId = ctx.from?.id;
+    if (!userId) return;
 
     const replyFrom = ctx.message.reply_to_message?.from;
     const replySenderChat = (ctx.message.reply_to_message as any)?.sender_chat;
