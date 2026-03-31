@@ -1,5 +1,5 @@
 import { Context, InputFile } from 'grammy';
-import { bot } from '@/botInstance.js';
+import { bot, BOT_USERNAME, BOT_ID } from '@/botInstance.js';
 import { generateReply, maybeRememberFact } from '@/ai/generateReply.js';
 import { getDailyEvents } from '@/events/events.js';
 import { fetchWeather } from '@/weather/fetch-weather.js';
@@ -22,7 +22,6 @@ async function sendWeather(ctx: Context, city: string) {
   try {
     const data = await fetchWeather(city);
     const message = formatWeather(data);
-    // Отвечаем в тот же чат откуда пришёл запрос
     await ctx.reply(message, { parse_mode: 'HTML' });
   } catch (err) {
     await ctx.reply(`❌ Не удалось получить погоду: ${err instanceof Error ? err.message : err}`);
@@ -108,59 +107,70 @@ export function setupHandlers(botInstance: typeof bot) {
     }
 
     // Обычный чат с ИИ
-    const reply = await generateReply(ctx.from.id, text);
-    await ctx.reply(reply);
+    const reply = await generateReply(ctx.chat.id, ctx.from.id, text);
+    await ctx.reply(reply, { parse_mode: 'HTML' });
     const remembered = await maybeRememberFact(ctx.from.id, text);
     if (remembered) await ctx.reply('🐾 Запомнил!');
   });
 
-  // Трекинг активного пользователя в группе: chatId → userId
-  // Диалог считается активным пока идут reply-цепочки
-  const activeGroupUser = new Map<number, number>();
-
-  // Текстовые сообщения в группе — только reply на сообщение бота
+  // Текстовые сообщения в группе — reply на бота, reply на пост канала, или @упоминание
   botInstance.on('message:text', async (ctx) => {
     if (ctx.chat.type === 'private') return;
-
-    const botUsername = ctx.me.username;
-    const replyFrom = ctx.message.reply_to_message?.from;
-    const replySenderChat = (ctx.message.reply_to_message as any)?.sender_chat;
-    const channelUsername = process.env.CHANNEL_ID?.replace('@', '');
-    const isReplyToBot = replyFrom?.username === botUsername;
-    const isReplyToChannel =
-      replySenderChat?.username === channelUsername ||
-      replySenderChat?.username === botUsername;
-    console.log('[group msg]', {
-      from: ctx.from?.username,
-      replyFromUsername: replyFrom?.username,
-      replyFromIsBot: replyFrom?.is_bot,
-      replySenderChatUsername: replySenderChat?.username,
-      botUsername,
-      channelUsername,
-      isReplyToBot,
-      isReplyToChannel,
-    });
-    if (!isReplyToBot && !isReplyToChannel) return;
 
     const userId = ctx.from?.id;
     if (!userId) return;
 
+    const messageText = ctx.message.text;
+
+    // Игнорируем команды
+    if (messageText.startsWith('/')) return;
+
+    const replyFrom = ctx.message.reply_to_message?.from;
+    const replySenderChat = (ctx.message.reply_to_message as any)?.sender_chat;
+    const channelUsername = process.env.CHANNEL_ID?.replace('@', '');
+
+    // Триггер 1: reply на сообщение бота
+    const isReplyToBot =
+      replyFrom?.id === BOT_ID ||
+      (BOT_USERNAME && replyFrom?.username === BOT_USERNAME);
+
+    // Триггер 2: reply на пост из связанного канала
+    const channelNumericId = process.env.CHANNEL_CHAT_ID ? Number(process.env.CHANNEL_CHAT_ID) : null;
+    const isReplyToChannel =
+      (channelUsername && replySenderChat?.username === channelUsername) ||
+      (BOT_USERNAME && replySenderChat?.username === BOT_USERNAME) ||
+      (channelNumericId && replySenderChat?.id === channelNumericId);
+
+    // Триггер 3: @упоминание бота через entities (точный метод)
+    const isMentioned =
+      BOT_USERNAME &&
+      (ctx.message.entities?.some(
+        (e) =>
+          e.type === 'mention' &&
+          messageText.slice(e.offset, e.offset + e.length) === `@${BOT_USERNAME}`,
+      ) ?? false);
+
+    console.log('[group msg]', {
+      from: ctx.from?.username,
+      replyFromUsername: replyFrom?.username,
+      replySenderChatUsername: replySenderChat?.username,
+      replySenderChatId: replySenderChat?.id,
+      isReplyToBot,
+      isReplyToChannel,
+      isMentioned,
+    });
+
+    if (!isReplyToBot && !isReplyToChannel && !isMentioned) return;
+
     const chatId = ctx.chat.id;
-    const currentActiveUser = activeGroupUser.get(chatId);
 
-    // Если уже идёт диалог с другим пользователем — вежливо отказать
-    if (currentActiveUser && currentActiveUser !== userId) {
-      await ctx.reply(
-        'Мурр... Прошу прощения, я сейчас веду беседу с другим человеком. Напишите мне чуть позже — я обязательно отвечу. 🐾',
-        { reply_parameters: { message_id: ctx.message.message_id } },
-      );
-      return;
-    }
+    // Убираем @упоминание бота из текста перед отправкой в AI
+    let userText = BOT_USERNAME
+      ? messageText.replace(new RegExp(`@${BOT_USERNAME}`, 'gi'), '').trim()
+      : messageText;
 
-    // Устанавливаем текущего пользователя как активного
-    activeGroupUser.set(chatId, userId);
-
-    let userText = ctx.message.text;
+    // Если после очистки текст пустой — пропускаем
+    if (!userText) return;
 
     // Если ответ на голосовое → расшифровать + ответить
     const repliedVoice = ctx.message.reply_to_message?.voice;
@@ -184,8 +194,9 @@ export function setupHandlers(botInstance: typeof bot) {
     const memories = user ? await loadUserMemory(userId) : [];
     const extraSystemContext = user ? buildUserContextBlock(user, memories) : undefined;
 
-    const reply = await generateReply(userId, userText, { extraSystemContext });
+    const reply = await generateReply(chatId, userId, userText, { extraSystemContext });
     await ctx.reply(reply, {
+      parse_mode: 'HTML',
       reply_parameters: { message_id: ctx.message.message_id },
     });
 
@@ -195,12 +206,5 @@ export function setupHandlers(botInstance: typeof bot) {
         reply_parameters: { message_id: ctx.message.message_id },
       });
     }
-
-    // Сбрасываем активного пользователя через 10 минут бездействия
-    setTimeout(() => {
-      if (activeGroupUser.get(chatId) === userId) {
-        activeGroupUser.delete(chatId);
-      }
-    }, 10 * 60 * 1000);
   });
 }

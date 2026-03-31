@@ -1,0 +1,22 @@
+[
+  { "hostname": "*.anthropic.com", "ip": "" },
+  { "hostname": "anthropic.com", "ip": "" },
+  { "hostname": "api.anthropic.com", "ip": "" },
+  { "hostname": "console.anthropic.com", "ip": "" },
+  { "hostname": "claude.ai", "ip": "" },
+  { "hostname": "*.claude.ai", "ip": "" },
+  { "hostname": "cdn.claude.ai", "ip": "" },
+  { "hostname": "assets.claude.ai", "ip": "" },
+  { "hostname": "static.claude.ai", "ip": "" },
+  { "hostname": "*.intercom.io", "ip": "" },
+  { "hostname": "*.intercomcdn.com", "ip": "" },
+  { "hostname": "js.intercomcdn.com", "ip": "" },
+  { "hostname": "js.stripe.com", "ip": "" },
+  { "hostname": "*.sentry.io", "ip": "" },
+  { "hostname": "*.ingest.sentry.io", "ip": "" },
+  { "hostname": "*.datadoghq.com", "ip": "" },
+  { "hostname": "rum.browser-intake-datadoghq.com", "ip": "" },
+  { "hostname": "*.statsig.com", "ip": "" },
+  { "hostname": "*.statsigapi.net", "ip": "" },
+  { "hostname": "challenges.cloudflare.com", "ip": "" }
+]

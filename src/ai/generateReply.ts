@@ -9,13 +9,14 @@ interface GenerateReplyOptions {
 }
 
 export async function generateReply(
+  chatId: number | string,
   userId: number,
   userMessage: string,
   options?: GenerateReplyOptions,
 ): Promise<string> {
-  pushToContext(userId, 'user', userMessage);
+  pushToContext(chatId, userId, 'user', userMessage);
 
-  const history = getUserContext(userId);
+  const history = getUserContext(chatId, userId);
 
   // Build system prompt: extraContext + persistent memories + base persona
   let systemPrompt = '';
@@ -36,7 +37,7 @@ export async function generateReply(
 
   try {
     const answer = (await gptunnelChat(messages)).trim() || 'Не понял, повтори.';
-    pushToContext(userId, 'assistant', answer);
+    pushToContext(chatId, userId, 'assistant', answer);
     return answer;
   } catch (err) {
     console.error('Chat error:', err);

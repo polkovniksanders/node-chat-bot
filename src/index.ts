@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { bot } from '@/botInstance.js';
+import { bot, initBotInfo } from '@/botInstance.js';
 import { setupHandlers } from '@/bot/handlers.js';
 import { setupDailyCycleCron } from '@/cron/dailyCycle.js';
 import { setupDailyEventsCron } from '@/cron/dailyEvents.js';
@@ -24,6 +24,8 @@ if (process.env.EVENTS_CHANNEL_ID) {
 
 bot.catch((err) => console.error('❌ Bot error:', err));
 
-bot.start().then(() => {
-  console.log('🤖 Bot started in LONG POLLING mode');
-});
+initBotInfo()
+  .then(() => bot.start())
+  .then(() => {
+    console.log('🤖 Bot started in LONG POLLING mode');
+  });
