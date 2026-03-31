@@ -107,6 +107,30 @@ export function setupHandlers(botInstance: typeof bot) {
       return;
     }
 
+    // Проверка: это ответ на сообщение бота?
+    const replyToBot = ctx.message.reply_to_message?.from?.is_bot && 
+                       ctx.message.reply_to_message.from.username === ctx.me.username;
+
+    if (replyToBot) {
+      // Пользователь ответил на сообщение бота — используем контекст диалога + память
+      const user = findUserById(ctx.from.id);
+      const memories = user ? await loadUserMemory(ctx.from.id) : [];
+      const extraSystemContext = user ? buildUserContextBlock(user, memories) : undefined;
+
+      const reply = await generateReply(ctx.from.id, text, { extraSystemContext });
+      await ctx.reply(reply, {
+        reply_parameters: { message_id: ctx.message.message_id },
+      });
+
+      const remembered = await maybeRememberFact(ctx.from.id, text);
+      if (remembered) {
+        await ctx.reply('🐾 Запомнил!', {
+          reply_parameters: { message_id: ctx.message.message_id },
+        });
+      }
+      return;
+    }
+
     // Обычный чат с ИИ
     const reply = await generateReply(ctx.from.id, text);
     await ctx.reply(reply);
