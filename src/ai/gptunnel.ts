@@ -4,6 +4,7 @@ const BASE_URL = 'https://gptunnel.ru/v1';
 const EXCLUDED_PATTERNS = ['coder', 'codex', 'search', 'faceswap', 'imagine', 'video', 'tts', 'embed', 'moderat'];
 
 let cachedModel: string | null = null;
+let cachedSmartModel: string | null = null;
 
 export async function getGptunnelModel(): Promise<string> {
   if (cachedModel) return cachedModel;
@@ -40,6 +41,61 @@ export async function getGptunnelModel(): Promise<string> {
   }
 
   return cachedModel!;
+}
+
+export async function getGptunnelSmartModel(): Promise<string> {
+  if (cachedSmartModel) return cachedSmartModel;
+
+  try {
+    const res = await fetch(`${BASE_URL}/models`, {
+      headers: { Authorization: process.env.GPTUNNEL_API_KEY ?? '' },
+    });
+
+    if (!res.ok) throw new Error(`${res.status}`);
+
+    const { data } = (await res.json()) as { data: any[] };
+
+    const models = data
+      .filter(
+        (m) =>
+          m.type === 'TEXT' && !EXCLUDED_PATTERNS.some((p) => m.id.toLowerCase().includes(p)),
+      )
+      .sort(
+        (a, b) =>
+          parseFloat(a.cost_context) +
+          parseFloat(a.cost_completion) -
+          (parseFloat(b.cost_context) + parseFloat(b.cost_completion)),
+      );
+
+    const midIndex = Math.floor(models.length / 2);
+    cachedSmartModel = models[midIndex]?.id ?? 'gpt-4o';
+    console.log(`🤖 GPTunnel smart model selected: ${cachedSmartModel}`);
+  } catch (err) {
+    console.warn('⚠️ GPTunnel smart model selection failed, using gpt-4o:', err);
+    cachedSmartModel = 'gpt-4o';
+  }
+
+  return cachedSmartModel!;
+}
+
+export async function gptunnelChatSmart(
+  messages: { role: string; content: string }[],
+): Promise<string> {
+  const model = await getGptunnelSmartModel();
+
+  const res = await fetch(`${BASE_URL}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      Authorization: process.env.GPTUNNEL_API_KEY ?? '',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ model, messages }),
+  });
+
+  if (!res.ok) throw new Error(await res.text());
+
+  const data: any = await res.json();
+  return data.choices?.[0]?.message?.content ?? '';
 }
 
 export async function gptunnelChat(

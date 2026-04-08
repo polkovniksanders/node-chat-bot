@@ -1,4 +1,4 @@
-import { gptunnelChat } from '@/ai/gptunnel.js';
+import { gptunnelChatSmartSmart } from '@/ai/gptunnel.js';
 import { getUserContext, pushToContext } from '@/context/memory.js';
 import { loadUserMemory, saveUserMemory, formatMemoriesForPrompt } from '@/context/userMemory.js';
 import { CHAT_BOT_PROMPT, STEPKA_PERSONA } from '@/config/prompts.js';
@@ -36,7 +36,7 @@ export async function generateReply(
   ];
 
   try {
-    const answer = (await gptunnelChat(messages)).trim() || 'Не понял, повтори.';
+    const answer = (await gptunnelChatSmart(messages)).trim() || 'Не понял, повтори.';
     pushToContext(chatId, userId, 'assistant', answer);
     return answer;
   } catch (err) {
@@ -61,7 +61,7 @@ export async function maybeRememberFact(userId: number, userMessage: string): Pr
   if (!MEMORY_TRIGGER.test(userMessage)) return false;
 
   try {
-    const response = await gptunnelChat([
+    const response = await gptunnelChatSmart([
       { role: 'system', content: MEMORY_SAFETY_SYSTEM },
       { role: 'user', content: `Сообщение пользователя: "${userMessage}"` },
     ]);
