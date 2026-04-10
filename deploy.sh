@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-# App directory on server — all apps live under /apps/<name>
-APP_DIR="/apps/chat_bot"
+# Определяем папку по расположению скрипта — не важно куда склонирован проект
+APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Colors
 GREEN='\033[0;32m'
