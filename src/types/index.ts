@@ -4,16 +4,6 @@ export type ChatMsg = {
   reasoning_details?: unknown;
 };
 
-export interface OpenRouterResponse {
-  choices: {
-    message: {
-      role: string;
-      content: string | { type: string; text: string }[];
-      reasoning_details?: any;
-    };
-  }[];
-}
-
 // ─── Events / fetchRealEvents types ──────────────────────────────────────────
 
 export interface OpenHoliday {

@@ -1,7 +1,6 @@
 import { fetchOpenAI } from '@/news/providers/openAI.js';
 import { fetchGemini } from '@/news/providers/gemini.js';
 import { fetchGroq } from '@/news/providers/groq.js';
-import { fetchWithOpenRouter } from '@/news/providers/openRouter.js';
 import { fetchGptunnel } from '@/news/providers/gptunnel.js';
 import { fetchAnthropic } from '@/news/providers/anthropic.js';
 import {
@@ -26,7 +25,6 @@ const AI_PROVIDERS: AIProvider[] = [
   { name: 'HuggingFace (Mistral Small 24B)', fetch: fetchHuggingFaceMistral },
   { name: 'HuggingFace (Gemma 3 27B)', fetch: fetchHuggingFaceGemma },
   { name: 'Groq (Llama 3.3 70B)', fetch: fetchGroq },
-  { name: 'OpenRouter (DeepSeek)', fetch: fetchWithOpenRouter },
   { name: 'OpenAI (GPT-4o-mini)', fetch: fetchOpenAI },
   { name: 'Google Gemini', fetch: fetchGemini },
 ];

@@ -1,4 +1,4 @@
-import { gptunnelChatSmartSmart } from '@/ai/gptunnel.js';
+import { gptunnelChatSmart } from '@/ai/gptunnel.js';
 import { getUserContext, pushToContext } from '@/context/memory.js';
 import { loadUserMemory, saveUserMemory, formatMemoriesForPrompt } from '@/context/userMemory.js';
 import { CHAT_BOT_PROMPT, STEPKA_PERSONA } from '@/config/prompts.js';
