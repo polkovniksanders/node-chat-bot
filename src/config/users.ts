@@ -10,7 +10,8 @@ export const REGISTERED_USERS: RegisteredUser[] = [
     id: 942510836,
     username: 'Eset74',
     firstName: 'Андрей',
-    description: 'Замечательный друг и любитель кальяна',
+    description:
+      'Замечательный друг и любитель кальяна. Стильно одевается и очень уважает свою семью и друзей',
   },
   {
     id: 5492444,

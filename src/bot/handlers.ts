@@ -186,7 +186,7 @@ export function setupHandlers(botInstance: typeof bot) {
     const memories = user ? await loadUserMemory(userId) : [];
     const extraSystemContext = user ? buildUserContextBlock(user, memories) : undefined;
 
-    const reply = await generateReply(chatId, userId, userText, { extraSystemContext });
+    const reply = await generateReply(chatId, userId, userText, { extraSystemContext, isGroupReply: true });
     await ctx.reply(reply, {
       parse_mode: 'HTML',
       reply_parameters: { message_id: ctx.message.message_id },

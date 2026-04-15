@@ -1,11 +1,16 @@
 import { gptunnelChatSmart } from '@/ai/gptunnel.js';
 import { getUserContext, pushToContext } from '@/context/memory.js';
 import { loadUserMemory, saveUserMemory, formatMemoriesForPrompt } from '@/context/userMemory.js';
-import { CHAT_BOT_PROMPT, STEPKA_PERSONA } from '@/config/prompts.js';
+import { CHAT_BOT_PROMPT, CHAT_MOODS, LENGTH_MODES, OPENING_STYLES, buildGroupReplyPrompt } from '@/config/prompts.js';
 
 interface GenerateReplyOptions {
   extraSystemContext?: string;
   skipMemory?: boolean;
+  isGroupReply?: boolean;
+}
+
+function pickRandom<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
 }
 
 export async function generateReply(
@@ -20,15 +25,35 @@ export async function generateReply(
 
   // Build system prompt: extraContext + persistent memories + base persona
   let systemPrompt = '';
-  if (options?.extraSystemContext) {
-    systemPrompt += options.extraSystemContext;
-  }
-  if (!options?.skipMemory) {
-    const memories = await loadUserMemory(userId);
+  let temperature: number | undefined;
+
+  if (options?.isGroupReply) {
+    const mood = pickRandom(CHAT_MOODS);
+    const lengthMode = pickRandom(LENGTH_MODES);
+    const openingStyle = pickRandom(OPENING_STYLES);
+
+    const memories = options?.skipMemory ? [] : await loadUserMemory(userId);
+    const useMemoryActive = memories.length > 0 && Math.random() < 0.4;
+
+    if (options?.extraSystemContext) systemPrompt += options.extraSystemContext;
+    systemPrompt += buildGroupReplyPrompt({ mood, lengthMode, openingStyle, useMemoryActive });
+
     const memBlock = formatMemoriesForPrompt(memories);
-    if (memBlock) systemPrompt += memBlock + '\n\n';
+    if (memBlock) systemPrompt += '\n\n' + memBlock;
+
+    temperature = mood.temperature;
+    console.log('[group reply params]', { mood: mood.name, length: lengthMode.name, useMemoryActive });
+  } else {
+    if (options?.extraSystemContext) {
+      systemPrompt += options.extraSystemContext;
+    }
+    if (!options?.skipMemory) {
+      const memories = await loadUserMemory(userId);
+      const memBlock = formatMemoriesForPrompt(memories);
+      if (memBlock) systemPrompt += memBlock + '\n\n';
+    }
+    systemPrompt += CHAT_BOT_PROMPT;
   }
-  systemPrompt += CHAT_BOT_PROMPT;
 
   const messages = [
     { role: 'system', content: systemPrompt },
@@ -36,7 +61,7 @@ export async function generateReply(
   ];
 
   try {
-    const answer = (await gptunnelChatSmart(messages)).trim() || 'Не понял, повтори.';
+    const answer = (await gptunnelChatSmart(messages, { temperature })).trim() || 'Не понял, повтори.';
     pushToContext(chatId, userId, 'assistant', answer);
     return answer;
   } catch (err) {

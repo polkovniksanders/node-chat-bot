@@ -80,6 +80,7 @@ export async function getGptunnelSmartModel(): Promise<string> {
 
 export async function gptunnelChatSmart(
   messages: { role: string; content: string }[],
+  options?: { temperature?: number },
 ): Promise<string> {
   const model = await getGptunnelSmartModel();
 
@@ -89,7 +90,11 @@ export async function gptunnelChatSmart(
       Authorization: process.env.GPTUNNEL_API_KEY ?? '',
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ model, messages }),
+    body: JSON.stringify({
+      model,
+      messages,
+      ...(options?.temperature !== undefined ? { temperature: options.temperature } : {}),
+    }),
   });
 
   if (!res.ok) throw new Error(await res.text());
