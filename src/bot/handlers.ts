@@ -9,9 +9,10 @@ import { checkRateLimit, recordGeneration, formatRemaining } from '@/generate/ra
 import { setupSoraHandler } from '@/bot/soraHandler.js';
 import { setupVoiceHandler } from '@/bot/voiceHandler.js';
 import { setupSayHandler } from '@/bot/sayHandler.js';
-import { findUserById } from '@/config/users.js';
+import { findUserById, RegisteredUser } from '@/config/users.js';
 import { loadUserMemory } from '@/context/userMemory.js';
 import { buildUserContextBlock } from '@/config/prompts.js';
+import { upsertUserProfile } from '@/context/userProfiles.js';
 import { downloadVoice } from '@/bot/voiceUtils.js';
 import { transcribeAudio } from '@/ai/transcribe.js';
 
@@ -183,8 +184,21 @@ export function setupHandlers(botInstance: typeof bot) {
     }
 
     const user = findUserById(userId);
-    const memories = user ? await loadUserMemory(userId) : [];
-    const extraSystemContext = user ? buildUserContextBlock(user, memories) : undefined;
+    const memories = await loadUserMemory(userId);
+
+    let extraSystemContext: string | undefined;
+    if (user) {
+      extraSystemContext = buildUserContextBlock(user, memories);
+    } else {
+      const profile = await upsertUserProfile(userId, ctx.from.first_name, ctx.from.username);
+      const dynamicUser: RegisteredUser = {
+        id: profile.userId,
+        firstName: profile.firstName,
+        username: profile.username,
+        description: '',
+      };
+      extraSystemContext = buildUserContextBlock(dynamicUser, memories);
+    }
 
     const reply = await generateReply(chatId, userId, userText, { extraSystemContext, isGroupReply: true });
     await ctx.reply(reply, {
