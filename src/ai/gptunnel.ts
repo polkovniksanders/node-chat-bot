@@ -62,13 +62,12 @@ export async function getGptunnelSmartModel(): Promise<string> {
       )
       .sort(
         (a, b) =>
-          parseFloat(a.cost_context) +
-          parseFloat(a.cost_completion) -
-          (parseFloat(b.cost_context) + parseFloat(b.cost_completion)),
+          parseFloat(b.cost_context) +
+          parseFloat(b.cost_completion) -
+          (parseFloat(a.cost_context) + parseFloat(a.cost_completion)),
       );
 
-    const midIndex = Math.floor(models.length / 2);
-    cachedSmartModel = models[midIndex]?.id ?? 'gpt-4o';
+    cachedSmartModel = models[0]?.id ?? 'gpt-4o';
     console.log(`🤖 GPTunnel smart model selected: ${cachedSmartModel}`);
   } catch (err) {
     console.warn('⚠️ GPTunnel smart model selection failed, using gpt-4o:', err);

@@ -1,7 +1,7 @@
 import { gptunnelChatSmart } from '@/ai/gptunnel.js';
 import { getUserContext, pushToContext } from '@/context/memory.js';
 import { loadUserMemory, saveUserMemory, formatMemoriesForPrompt } from '@/context/userMemory.js';
-import { CHAT_BOT_PROMPT, CHAT_MOODS, LENGTH_MODES, OPENING_STYLES, buildGroupReplyPrompt } from '@/config/prompts.js';
+import { CHAT_BOT_PROMPT, CHAT_MOODS, LENGTH_MODES, OPENING_STYLES, buildGroupReplyPrompt, PASSIVE_EXTRACTION_PROMPT } from '@/config/prompts.js';
 
 interface GenerateReplyOptions {
   extraSystemContext?: string;
@@ -33,7 +33,7 @@ export async function generateReply(
     const openingStyle = pickRandom(OPENING_STYLES);
 
     const memories = options?.skipMemory ? [] : await loadUserMemory(userId);
-    const useMemoryActive = memories.length > 0 && Math.random() < 0.4;
+    const useMemoryActive = memories.length > 0;
 
     if (options?.extraSystemContext) systemPrompt += options.extraSystemContext;
     systemPrompt += buildGroupReplyPrompt({ mood, lengthMode, openingStyle, useMemoryActive });
@@ -81,6 +81,40 @@ const MEMORY_SAFETY_SYSTEM = `Ты — фильтр безопасности д�
 Ответь СТРОГО в одном из форматов:
 YES:<факт одной строкой на русском>
 NO:<причина отказа>`;
+
+export async function extractAndSaveFact(userId: number, userText: string): Promise<void> {
+  if (userText.trim().length < 10) return;
+
+  try {
+    const response = await gptunnelChatSmart([
+      { role: 'system', content: PASSIVE_EXTRACTION_PROMPT },
+      { role: 'user', content: userText },
+    ]);
+
+    const trimmed = response.trim();
+    console.log('[extractAndSaveFact] response:', JSON.stringify(trimmed));
+
+    if (!trimmed.startsWith('YES:')) return;
+
+    const fact = trimmed.slice(4).trim();
+    if (!fact) return;
+
+    const existing = await loadUserMemory(userId);
+    const factLower = fact.toLowerCase();
+    const isDuplicate = existing.some(
+      (m) => m.toLowerCase().includes(factLower) || factLower.includes(m.toLowerCase()),
+    );
+    if (isDuplicate) {
+      console.log('[extractAndSaveFact] skipped duplicate:', fact);
+      return;
+    }
+
+    await saveUserMemory(userId, fact);
+    console.log('[extractAndSaveFact] saved:', fact, 'userId:', userId);
+  } catch (err) {
+    console.error('[extractAndSaveFact] error:', err);
+  }
+}
 
 export async function maybeRememberFact(userId: number, userMessage: string): Promise<boolean> {
   if (!MEMORY_TRIGGER.test(userMessage)) return false;

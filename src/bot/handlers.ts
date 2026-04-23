@@ -1,6 +1,6 @@
 import { Context, InputFile } from 'grammy';
 import { bot, BOT_USERNAME, BOT_ID } from '@/botInstance.js';
-import { generateReply, maybeRememberFact } from '@/ai/generateReply.js';
+import { generateReply, maybeRememberFact, extractAndSaveFact } from '@/ai/generateReply.js';
 import { getDailyEvents } from '@/events/events.js';
 import { fetchWeather } from '@/weather/fetch-weather.js';
 import { formatWeather } from '@/weather/formatter.js';
@@ -111,6 +111,7 @@ export function setupHandlers(botInstance: typeof bot) {
       await ctx.reply(reply, { parse_mode: 'HTML' });
       const remembered = await maybeRememberFact(ctx.from.id, messageText);
       if (remembered) await ctx.reply('🐾 Запомнил!');
+      extractAndSaveFact(ctx.from.id, messageText).catch(() => {});
       return;
     }
 
@@ -212,5 +213,6 @@ export function setupHandlers(botInstance: typeof bot) {
         reply_parameters: { message_id: ctx.message.message_id },
       });
     }
+    extractAndSaveFact(userId, userText).catch(() => {});
   });
 }
