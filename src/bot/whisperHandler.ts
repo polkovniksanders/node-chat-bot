@@ -33,7 +33,7 @@ async function writeWhispers(entries: WhisperEntry[]): Promise<void> {
 }
 
 export function setupWhisperHandler(botInstance: typeof bot) {
-  botInstance.command('шепот', async (ctx) => {
+  botInstance.command('secret', async (ctx) => {
     if (ctx.chat.type !== 'private') {
       await ctx.reply('🤫 Шёпоты принимаются только в личке.');
       return;
@@ -41,7 +41,7 @@ export function setupWhisperHandler(botInstance: typeof bot) {
 
     const text = ctx.match.trim();
     if (!text) {
-      await ctx.reply('🤫 Напиши текст после команды:\n/шепот Твой текст');
+      await ctx.reply('🤫 Напиши текст после команды:\n/secret Твой текст');
       return;
     }
 
