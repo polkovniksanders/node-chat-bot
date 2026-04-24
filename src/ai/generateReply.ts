@@ -33,7 +33,7 @@ export async function generateReply(
     const openingStyle = pickRandom(OPENING_STYLES);
 
     const memories = options?.skipMemory ? [] : await loadUserMemory(userId);
-    const useMemoryActive = memories.length > 0;
+    const useMemoryActive = memories.length > 0 && Math.random() < 0.3;
 
     if (options?.extraSystemContext) systemPrompt += options.extraSystemContext;
     systemPrompt += buildGroupReplyPrompt({ mood, lengthMode, openingStyle, useMemoryActive });

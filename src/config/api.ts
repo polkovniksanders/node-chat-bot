@@ -26,4 +26,5 @@ export const API_URLS = {
   MOEX_SBER: 'https://iss.moex.com/iss/engines/stock/markets/shares/boards/TQBR/securities/SBER.json?iss.meta=off&iss.only=marketdata&marketdata.columns=SECID,LAST,PREVLEGALCLOSEPRICE',
   COINGECKO_BTC: 'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd',
   FEAR_GREED: 'https://api.alternative.me/fng/?limit=1',
+  BIG_MAC_CSV: 'https://raw.githubusercontent.com/TheEconomist/big-mac-data/master/output-data/big-mac-full-index.csv',
 } as const;

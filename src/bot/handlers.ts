@@ -11,7 +11,7 @@ import { setupVoiceHandler } from '@/bot/voiceHandler.js';
 import { setupSayHandler } from '@/bot/sayHandler.js';
 import { findUserById, RegisteredUser } from '@/config/users.js';
 import { loadUserMemory } from '@/context/userMemory.js';
-import { buildUserContextBlock } from '@/config/prompts.js';
+import { buildUserContextBlock, buildReplyContextBlock } from '@/config/prompts.js';
 import { upsertUserProfile } from '@/context/userProfiles.js';
 import { downloadVoice } from '@/bot/voiceUtils.js';
 import { transcribeAudio } from '@/ai/transcribe.js';
@@ -187,18 +187,25 @@ export function setupHandlers(botInstance: typeof bot) {
     const user = findUserById(userId);
     const memories = await loadUserMemory(userId);
 
-    let extraSystemContext: string | undefined;
+    let extraSystemContext = '';
+
+    // Если пользователь отвечает на конкретное сообщение — добавляем его текст как контекст
+    const repliedText = ctx.message.reply_to_message?.text ?? ctx.message.reply_to_message?.caption;
+    if (repliedText) {
+      extraSystemContext += buildReplyContextBlock(repliedText);
+    }
+
     if (user) {
-      extraSystemContext = buildUserContextBlock(user, memories);
+      extraSystemContext += buildUserContextBlock(user, memories);
     } else {
       const profile = await upsertUserProfile(userId, ctx.from.first_name, ctx.from.username);
       const dynamicUser: RegisteredUser = {
         id: profile.userId,
         firstName: profile.firstName,
         username: profile.username,
-        description: '',
+        description: `Незнакомый пользователь, общается в группе.`,
       };
-      extraSystemContext = buildUserContextBlock(dynamicUser, memories);
+      extraSystemContext += buildUserContextBlock(dynamicUser, memories);
     }
 
     const reply = await generateReply(chatId, userId, userText, { extraSystemContext, isGroupReply: true });
