@@ -9,6 +9,7 @@ import { checkRateLimit, recordGeneration, formatRemaining } from '@/generate/ra
 import { setupSoraHandler } from '@/bot/soraHandler.js';
 import { setupVoiceHandler } from '@/bot/voiceHandler.js';
 import { setupSayHandler } from '@/bot/sayHandler.js';
+import { setupWhisperHandler } from '@/bot/whisperHandler.js';
 import { findUserById, RegisteredUser } from '@/config/users.js';
 import { loadUserMemory } from '@/context/userMemory.js';
 import { buildUserContextBlock, buildReplyContextBlock } from '@/config/prompts.js';
@@ -32,6 +33,7 @@ async function sendWeather(ctx: Context, city: string) {
 export function setupHandlers(botInstance: typeof bot) {
   setupSoraHandler();
   setupSayHandler();
+  setupWhisperHandler(botInstance);
   setupVoiceHandler(botInstance);
 
   botInstance.command('events', async (ctx) => {
