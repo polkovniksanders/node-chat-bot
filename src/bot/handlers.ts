@@ -18,6 +18,7 @@ import { downloadVoice } from '@/bot/voiceUtils.js';
 import { transcribeAudio } from '@/ai/transcribe.js';
 
 import { DEFAULT_CITY } from '@/config/constants.js';
+import { tryReact, shouldReactRandomly } from '@/bot/reactions.js';
 
 async function sendWeather(ctx: Context, city: string) {
   await ctx.reply(`⏳ Получаю погоду для ${city}...`);
@@ -156,6 +157,11 @@ export function setupHandlers(botInstance: typeof bot) {
       isMentioned,
     });
 
+    // Случайная реакция на любое сообщение в группе (15%)
+    if (shouldReactRandomly()) {
+      tryReact(ctx, ctx.message.message_id, messageText).catch(() => {});
+    }
+
     if (!isReplyToBot && !isReplyToChannel && !isMentioned) return;
 
     const chatId = ctx.chat.id;
@@ -211,6 +217,8 @@ export function setupHandlers(botInstance: typeof bot) {
     }
 
     const reply = await generateReply(chatId, userId, userText, { extraSystemContext, isGroupReply: true });
+    // Реакция на сообщение, которому отвечаем (всегда при ответе)
+    tryReact(ctx, ctx.message.message_id, userText).catch(() => {});
     await ctx.reply(reply, {
       parse_mode: 'HTML',
       reply_parameters: { message_id: ctx.message.message_id },
