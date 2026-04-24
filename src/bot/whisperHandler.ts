@@ -63,7 +63,7 @@ export function setupWhisperHandler(botInstance: typeof bot) {
     };
 
     try {
-      await bot.api.sendMessage(channelId, `🤫 Мне тут кое-кто сообщил, что ${text}`, {
+      await bot.api.sendMessage(channelId, `🤫 Мне тут кое-кто сообщил, что ${text}\n\n<i>— Это мнение анонимного шептуна. Степка лично за это не отвечает и вообще спал.</i>`, {
         parse_mode: 'HTML',
       });
       entry.published = true;
