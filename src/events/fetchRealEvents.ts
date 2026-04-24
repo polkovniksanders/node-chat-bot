@@ -3,8 +3,10 @@ import { TIMEZONE, CHELYABINSK, MORNING_GREETINGS, FEAR_GREED_LABELS } from '@/c
 import { fetchOpenHolidays, checkIsDayOff, fetchCalendRuHolidays, fetchKakoyPrazdnik } from '@/events/fetchers/holidays.js';
 import { fetchRandomPlace, fetchCompactWeather } from '@/events/fetchers/weather.js';
 import { fetchCatFact, fetchDogFact, fetchWordMeaning, fetchUselessFact } from '@/events/fetchers/facts.js';
-import { fetchInvestmentReturns, fetchFearGreedIndex } from '@/events/fetchers/investments.js';
+import { fetchInvestmentReturns, fetchFearGreedIndex, fetchBigMacIndex, CURRENCY_SYMBOLS } from '@/events/fetchers/investments.js';
 import { fetchBirths, fetchCbrRates, fetchCdfRate, fetchSunTimes, fetchDilemma, fetchRiddle } from '@/events/fetchers/misc.js';
+import { fetchDoomsdayClock } from '@/events/fetchers/doomsdayClock.js';
+import { fetchNostalgia } from '@/events/fetchers/nostalgia.js';
 
 function formatTemp(temp: number): string {
   return temp > 0 ? `+${temp}°C` : `${temp}°C`;
@@ -121,14 +123,18 @@ export async function fetchDailyFactsForDate(date: Date): Promise<string> {
     uselessFactResult,
     dilemmaResult,
     riddleResult,
+    doomsdayResult,
+    nostalgiaResult,   // [8] — always last
   ] = await Promise.allSettled([
-    fetchBirths(date),
-    fetchCatFact(),
-    fetchDogFact(),
-    fetchWordMeaning(),
-    fetchUselessFact(),
-    fetchDilemma(),
-    fetchRiddle(),
+    fetchBirths(date),       // [0]
+    fetchCatFact(),          // [1]
+    fetchDogFact(),          // [2]
+    fetchWordMeaning(),      // [3]
+    fetchUselessFact(),      // [4]
+    fetchDilemma(),          // [5]
+    fetchRiddle(),           // [6]
+    fetchDoomsdayClock(),    // [7]
+    fetchNostalgia(date),    // [8]
   ]);
 
   const births = birthsResult.status === 'fulfilled' ? birthsResult.value : [];
@@ -138,6 +144,8 @@ export async function fetchDailyFactsForDate(date: Date): Promise<string> {
   const uselessFact = uselessFactResult.status === 'fulfilled' ? uselessFactResult.value : null;
   const dilemma = dilemmaResult.status === 'fulfilled' ? dilemmaResult.value : null;
   const riddle = riddleResult.status === 'fulfilled' ? riddleResult.value : null;
+  const doomsdayClock = doomsdayResult.status === 'fulfilled' ? doomsdayResult.value : null;
+  const nostalgia = nostalgiaResult.status === 'fulfilled' ? nostalgiaResult.value : null;
 
   let text = '';
 
@@ -183,19 +191,33 @@ export async function fetchDailyFactsForDate(date: Date): Promise<string> {
     text += `<tg-spoiler>💡 Ответ: ${riddle.answer}</tg-spoiler>\n`;
   }
 
+  // ── Часы Судного дня ──────────────────────────────────────────────────────
+  if (doomsdayClock) {
+    text += `\n<b>──────────────</b>\n`;
+    text += `\n${doomsdayClock}\n`;
+  }
+
+  // ── Ностальгия (1989–2004) ─────────────────────────────────────────────────
+  if (nostalgia) {
+    text += `\n<b>──────────────</b>\n`;
+    text += `\n📼 <b>Ностальгия (1989–2004):</b>\n${nostalgia}\n`;
+  }
+
   return text.trimEnd();
 }
 
 // ─── POST 3 (9:05): currency + investments + fear&greed ──────────────────────
 
 export async function fetchFinancePost(): Promise<string> {
-  const [cbrRatesResult, cdfRateResult] = await Promise.allSettled([
+  const [cbrRatesResult, cdfRateResult, bigMacResult] = await Promise.allSettled([
     fetchCbrRates(),
     fetchCdfRate(),
+    fetchBigMacIndex(),
   ]);
 
   const cbrRates = cbrRatesResult.status === 'fulfilled' ? cbrRatesResult.value : [];
   const cdfRate = cdfRateResult.status === 'fulfilled' ? cdfRateResult.value : null;
+  const bigMac = bigMacResult.status === 'fulfilled' ? bigMacResult.value : null;
   const usdRubNow = cbrRates.find((r) => r.code === 'USD')?.valueRub ?? null;
 
   const [investmentResult, fearGreed] = await Promise.all([
@@ -229,6 +251,35 @@ export async function fetchFinancePost(): Promise<string> {
       });
       text += `🇨🇩 1 ₽ = ${cdfStr} CDF (Конголезский франк)\n`;
     }
+  }
+
+  // ── Индекс Биг Мака ───────────────────────────────────────────────────────
+  if (bigMac && bigMac.length > 0) {
+    text += `\n<b>──────────────</b>\n`;
+    text += `\n🍔 <b>Индекс Биг Мака:</b>\n`;
+    text += `<i>Сколько стоит Биг Мак в разных странах (данные The Economist)</i>\n\n`;
+    for (const entry of bigMac) {
+      const sym = CURRENCY_SYMBOLS[entry.currency_code] ?? entry.currency_code + ' ';
+      const localStr = entry.local_price % 1 === 0
+        ? entry.local_price.toFixed(0)
+        : entry.local_price.toFixed(2);
+      const usdStr = entry.dollar_price.toFixed(2);
+      if (entry.currency_code === 'USD') {
+        text += `${entry.emoji} ${entry.name}: $${usdStr} (базовая цена)\n`;
+      } else {
+        const raw = entry.usd_raw;
+        let valuation: string;
+        if (Math.abs(raw) < 5) {
+          valuation = '≈ паритет';
+        } else if (raw < 0) {
+          valuation = `📉 ${raw.toFixed(0)}% (валюта недооценена)`;
+        } else {
+          valuation = `📈 +${raw.toFixed(0)}% (валюта переоценена)`;
+        }
+        text += `${entry.emoji} ${entry.name}: ${sym}${localStr} → $${usdStr}  ${valuation}\n`;
+      }
+    }
+    text += `\n<i>Отклонение показывает, насколько валюта недо- или переоценена относительно доллара</i>\n`;
   }
 
   // ── Инвест-машина времени ──────────────────────────────────────────────────
