@@ -94,6 +94,16 @@ export function setupHandlers(botInstance: typeof bot) {
     }
   });
 
+  // Реакции на нетекстовые сообщения в группах (фото, видео, стикеры и т.д.)
+  botInstance.on('message', async (ctx) => {
+    if (ctx.chat.type === 'private') return;
+    if (ctx.message.text) return; // текстовые обрабатывает message:text
+
+    if (shouldReactRandomly()) {
+      tryReact(ctx, ctx.message.message_id).catch(() => {});
+    }
+  });
+
   // Текстовые сообщения — личка и группы
   botInstance.on('message:text', async (ctx) => {
     const messageText = ctx.message.text.trim();
