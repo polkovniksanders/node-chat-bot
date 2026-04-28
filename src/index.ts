@@ -25,8 +25,7 @@ if (process.env.EVENTS_CHANNEL_ID) {
 
 bot.catch((err) => logger.error('Unhandled bot error', { err: String(err) }));
 
-initBotInfo()
-  .then(() => bot.start())
-  .then(() => {
-    logger.info('Bot started', { mode: 'long-polling' });
-  });
+initBotInfo().then(() => {
+  logger.info('Bot started', { mode: 'long-polling' });
+  bot.start();
+});
