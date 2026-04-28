@@ -16,6 +16,7 @@ import { buildUserContextBlock, buildReplyContextBlock } from '@/config/prompts.
 import { upsertUserProfile } from '@/context/userProfiles.js';
 import { downloadVoice } from '@/bot/voiceUtils.js';
 import { transcribeAudio } from '@/ai/transcribe.js';
+import { logger } from '@/utils/logger.js';
 
 import { DEFAULT_CITY } from '@/config/constants.js';
 import { tryReact, shouldReactRandomly } from '@/bot/reactions.js';
@@ -94,19 +95,19 @@ export function setupHandlers(botInstance: typeof bot) {
     }
   });
 
-  // Реакции на нетекстовые сообщения в группах (фото, видео, стикеры и т.д.)
-  botInstance.on('message', async (ctx) => {
+  // Реакции на нетекстовые сообщения в группах и каналах (фото, видео, стикеры и т.д.)
+  botInstance.on('msg', async (ctx) => {
     if (ctx.chat.type === 'private') return;
-    if (ctx.message.text) return; // текстовые обрабатывает message:text
+    if (ctx.msg.text) return; // текстовые обрабатывает msg:text
 
     if (shouldReactRandomly()) {
-      tryReact(ctx, ctx.message.message_id).catch(() => {});
+      tryReact(ctx, ctx.msg.message_id).catch(() => {});
     }
   });
 
-  // Текстовые сообщения — личка и группы
-  botInstance.on('message:text', async (ctx) => {
-    const messageText = ctx.message.text.trim();
+  // Текстовые сообщения — личка, группы и каналы
+  botInstance.on('msg:text', async (ctx) => {
+    const messageText = ctx.msg.text.trim();
 
     // Игнорируем команды
     if (messageText.startsWith('/')) return;
@@ -119,21 +120,24 @@ export function setupHandlers(botInstance: typeof bot) {
         return;
       }
 
-      // Обычный чат с ИИ
-      const reply = await generateReply(ctx.chat.id, ctx.from.id, messageText);
+      // Обычный чат с ИИ (private chat всегда имеет from)
+      const fromId = ctx.from!.id;
+      const reply = await generateReply(ctx.chat.id, fromId, messageText);
       await ctx.reply(reply, { parse_mode: 'HTML' });
-      const remembered = await maybeRememberFact(ctx.from.id, messageText);
+      const remembered = await maybeRememberFact(fromId, messageText);
       if (remembered) await ctx.reply('🐾 Запомнил!');
-      extractAndSaveFact(ctx.from.id, messageText).catch(() => {});
+      extractAndSaveFact(fromId, messageText).catch(() => {});
       return;
     }
 
-    // Группы: reply на бота, reply на пост канала, или @упоминание
+    // Группы и каналы: reply на бота, reply на пост канала, или @упоминание
+    const isChannelPost = ctx.channelPost !== undefined;
     const userId = ctx.from?.id;
-    if (!userId) return;
 
-    const replyFrom = ctx.message.reply_to_message?.from;
-    const replySenderChat = (ctx.message.reply_to_message as any)?.sender_chat;
+    if (!isChannelPost && !userId) return;
+
+    const replyFrom = ctx.msg.reply_to_message?.from;
+    const replySenderChat = (ctx.msg.reply_to_message as any)?.sender_chat;
     const channelUsername = process.env.CHANNEL_ID?.replace('@', '');
 
     // Триггер 1: reply на сообщение бота
@@ -151,30 +155,39 @@ export function setupHandlers(botInstance: typeof bot) {
     // Триггер 3: @упоминание бота через entities (точный метод)
     const isMentioned =
       BOT_USERNAME &&
-      (ctx.message.entities?.some(
+      (ctx.msg.entities?.some(
         (e) =>
           e.type === 'mention' &&
           messageText.slice(e.offset, e.offset + e.length) === `@${BOT_USERNAME}`,
       ) ?? false);
 
-    console.log('[group msg]', {
+    logger.debug('msg received', {
       from: ctx.from?.username,
-      replyFromUsername: replyFrom?.username,
-      replySenderChatUsername: replySenderChat?.username,
-      replySenderChatId: replySenderChat?.id,
+      chat: ctx.chat.id,
+      isChannelPost,
       isReplyToBot,
       isReplyToChannel,
       isMentioned,
     });
 
     // Случайная реакция на любое сообщение в группе (15%)
-    if (shouldReactRandomly()) {
-      tryReact(ctx, ctx.message.message_id, messageText).catch(() => {});
+    if (!isChannelPost && shouldReactRandomly()) {
+      tryReact(ctx, ctx.msg.message_id, messageText).catch(() => {});
     }
 
-    if (!isReplyToBot && !isReplyToChannel && !isMentioned) return;
+    // Посты канала — отвечаем только на @упоминание
+    if (isChannelPost && !isMentioned) return;
+    // Группы — один из трёх триггеров
+    if (!isChannelPost && !isReplyToBot && !isReplyToChannel && !isMentioned) return;
 
     const chatId = ctx.chat.id;
+
+    logger.info('responding to trigger', {
+      trigger: isReplyToBot ? 'reply-to-bot' : isReplyToChannel ? 'reply-to-channel' : 'mention',
+      chatId,
+      from: ctx.from?.username,
+      isChannelPost,
+    });
 
     // Убираем @упоминание бота из текста перед отправкой в AI
     let userText = BOT_USERNAME
@@ -185,7 +198,7 @@ export function setupHandlers(botInstance: typeof bot) {
     if (!userText) return;
 
     // Если ответ на голосовое → расшифровать + ответить
-    const repliedVoice = ctx.message.reply_to_message?.voice;
+    const repliedVoice = ctx.msg.reply_to_message?.voice;
     if (repliedVoice) {
       try {
         const buffer = await downloadVoice(ctx, repliedVoice.file_id);
@@ -194,52 +207,61 @@ export function setupHandlers(botInstance: typeof bot) {
           userText = transcription;
           await ctx.reply(`🗣 <b>Расшифровка:</b>\n${transcription}`, {
             parse_mode: 'HTML',
-            reply_parameters: { message_id: ctx.message.reply_to_message!.message_id },
+            reply_parameters: { message_id: ctx.msg.reply_to_message!.message_id },
           });
         }
       } catch (err) {
-        console.error('Voice transcription error in group:', err);
+        logger.error('Voice transcription error', { err: String(err) });
       }
     }
 
-    const user = findUserById(userId);
-    const memories = await loadUserMemory(userId);
-
     let extraSystemContext = '';
 
-    // Если пользователь отвечает на конкретное сообщение — добавляем его текст как контекст
-    const repliedText = ctx.message.reply_to_message?.text ?? ctx.message.reply_to_message?.caption;
-    if (repliedText) {
-      extraSystemContext += buildReplyContextBlock(repliedText);
+    // Для группы — добавляем контекст пользователя и replied-текст
+    if (!isChannelPost && userId) {
+      const repliedText = ctx.msg.reply_to_message?.text ?? ctx.msg.reply_to_message?.caption;
+      if (repliedText) {
+        extraSystemContext += buildReplyContextBlock(repliedText);
+      }
+
+      const user = findUserById(userId);
+      const memories = await loadUserMemory(userId);
+
+      if (user) {
+        extraSystemContext += buildUserContextBlock(user, memories);
+      } else {
+        const profile = await upsertUserProfile(userId, ctx.from!.first_name, ctx.from!.username);
+        const dynamicUser: RegisteredUser = {
+          id: profile.userId,
+          firstName: profile.firstName,
+          username: profile.username,
+          description: `Незнакомый пользователь, общается в группе.`,
+        };
+        extraSystemContext += buildUserContextBlock(dynamicUser, memories);
+      }
     }
 
-    if (user) {
-      extraSystemContext += buildUserContextBlock(user, memories);
-    } else {
-      const profile = await upsertUserProfile(userId, ctx.from.first_name, ctx.from.username);
-      const dynamicUser: RegisteredUser = {
-        id: profile.userId,
-        firstName: profile.firstName,
-        username: profile.username,
-        description: `Незнакомый пользователь, общается в группе.`,
-      };
-      extraSystemContext += buildUserContextBlock(dynamicUser, memories);
+    const effectiveUserId = userId ?? 0;
+    const reply = await generateReply(chatId, effectiveUserId, userText, { extraSystemContext, isGroupReply: true });
+
+    // Реакция на сообщение, которому отвечаем (всегда при ответе в группе)
+    if (!isChannelPost) {
+      tryReact(ctx, ctx.msg.message_id, userText).catch(() => {});
     }
 
-    const reply = await generateReply(chatId, userId, userText, { extraSystemContext, isGroupReply: true });
-    // Реакция на сообщение, которому отвечаем (всегда при ответе)
-    tryReact(ctx, ctx.message.message_id, userText).catch(() => {});
     await ctx.reply(reply, {
       parse_mode: 'HTML',
-      reply_parameters: { message_id: ctx.message.message_id },
+      reply_parameters: { message_id: ctx.msg.message_id },
     });
 
-    const remembered = await maybeRememberFact(userId, userText);
-    if (remembered) {
-      await ctx.reply('🐾 Запомнил!', {
-        reply_parameters: { message_id: ctx.message.message_id },
-      });
+    if (!isChannelPost && userId) {
+      const remembered = await maybeRememberFact(userId, userText);
+      if (remembered) {
+        await ctx.reply('🐾 Запомнил!', {
+          reply_parameters: { message_id: ctx.msg.message_id },
+        });
+      }
+      extractAndSaveFact(userId, userText).catch(() => {});
     }
-    extractAndSaveFact(userId, userText).catch(() => {});
   });
 }
