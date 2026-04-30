@@ -123,7 +123,11 @@ export function setupHandlers(botInstance: typeof bot) {
       // Обычный чат с ИИ (private chat всегда имеет from)
       const fromId = ctx.from!.id;
       const reply = await generateReply(ctx.chat.id, fromId, messageText);
-      await ctx.reply(reply, { parse_mode: 'HTML' });
+      try {
+        await ctx.reply(reply, { parse_mode: 'HTML' });
+      } catch {
+        await ctx.reply(reply.replace(/<[^>]*>/g, ''));
+      }
       const remembered = await maybeRememberFact(fromId, messageText);
       if (remembered) await ctx.reply('🐾 Запомнил!');
       extractAndSaveFact(fromId, messageText).catch(() => {});
@@ -249,10 +253,16 @@ export function setupHandlers(botInstance: typeof bot) {
       tryReact(ctx, ctx.msg.message_id, userText).catch(() => {});
     }
 
-    await ctx.reply(reply, {
-      parse_mode: 'HTML',
-      reply_parameters: { message_id: ctx.msg.message_id },
-    });
+    try {
+      await ctx.reply(reply, {
+        parse_mode: 'HTML',
+        reply_parameters: { message_id: ctx.msg.message_id },
+      });
+    } catch {
+      await ctx.reply(reply.replace(/<[^>]*>/g, ''), {
+        reply_parameters: { message_id: ctx.msg.message_id },
+      });
+    }
 
     if (!isChannelPost && userId) {
       const remembered = await maybeRememberFact(userId, userText);

@@ -100,7 +100,12 @@ export async function gptunnelChatSmart(
   if (!res.ok) throw new Error(await res.text());
 
   const data: any = await res.json();
-  return data.choices?.[0]?.message?.content ?? '';
+  const content = data.choices?.[0]?.message?.content;
+  if (!content) {
+    console.warn('[gptunnelChatSmart] empty content, model:', model, 'finish_reason:', data.choices?.[0]?.finish_reason);
+    cachedSmartModel = null; // force re-select next call
+  }
+  return content ?? '';
 }
 
 export async function gptunnelChat(
