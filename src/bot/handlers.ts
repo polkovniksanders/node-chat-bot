@@ -108,6 +108,7 @@ export function setupHandlers(botInstance: typeof bot) {
   // Текстовые сообщения — личка, группы и каналы
   botInstance.on('msg:text', async (ctx) => {
     const messageText = ctx.msg.text.trim();
+    logger.info('msg:text received', { chat: ctx.chat.type, from: ctx.from?.id, text: messageText.slice(0, 50) });
 
     // Игнорируем команды
     if (messageText.startsWith('/')) return;
