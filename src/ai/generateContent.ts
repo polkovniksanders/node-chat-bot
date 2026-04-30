@@ -1,7 +1,7 @@
 import { gptunnelChat } from '@/ai/gptunnel.js';
 import { ANTHROPIC_URL, ANTHROPIC_MODEL } from '@/config/api.js';
 
-async function callAnthropic(systemPrompt: string, userPrompt: string): Promise<string> {
+export async function callAnthropic(systemPrompt: string, userPrompt: string): Promise<string> {
   const res = await fetch(ANTHROPIC_URL, {
     method: 'POST',
     headers: {

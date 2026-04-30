@@ -5,6 +5,7 @@ import {
   fetchMorningHeaderForDate,
   fetchDailyFactsForDate,
   fetchFinancePost,
+  fetchDigestFacts,
 } from '@/events/fetchRealEvents.js';
 import { fetchTrackOfDay, buildTrackMessage } from '@/events/fetchers/trackOfDay.js';
 import { fetchMovieOfDay } from '@/events/fetchers/movieOfDay.js';
@@ -12,8 +13,22 @@ import { bot } from '@/botInstance.js';
 import { TIMEZONE, TEST_CHANNEL } from '@/config/constants.js';
 import { getRandomUser } from '@/config/users.js';
 import { loadUserMemory } from '@/context/userMemory.js';
-import { buildCoffeeGreetingPrompt, buildDailyDialoguePrompt } from '@/config/prompts.js';
+import { buildCoffeeGreetingPrompt, buildDailyDialoguePrompt, buildDailyDialogueWithFactPrompt } from '@/config/prompts.js';
 import { gptunnelChat } from '@/ai/gptunnel.js';
+
+function generateSpreadDelays(count: number, maxMinutes: number, minGapMinutes: number): number[] {
+  const delays: number[] = [];
+  for (let i = 0; i < count; i++) {
+    let attempt = 0;
+    let delay: number;
+    do {
+      delay = Math.floor(Math.random() * maxMinutes) * 60_000;
+      attempt++;
+    } while (attempt < 100 && delays.some((d) => Math.abs(d - delay) < minGapMinutes * 60_000));
+    delays.push(delay);
+  }
+  return delays.sort((a, b) => a - b);
+}
 
 export function setupDailyEventsCron() {
   const channelId = process.env.EVENTS_CHANNEL_ID!;
@@ -127,25 +142,31 @@ export function setupDailyEventsCron() {
     { timezone: TIMEZONE },
   );
 
-  // 10:00 AM — случайные обращения к пользователям в течение рабочего дня (1–2 раза)
+  // 10:00 AM — случайные обращения к пользователям в течение рабочего дня (2–4 раза)
   cron.schedule(
     '0 10 * * *',
     () => {
-      const count = Math.random() < 0.5 ? 1 : 2;
+      const count = Math.floor(Math.random() * 3) + 2; // 2, 3 или 4
       const maxMinutes = 8 * 60; // окно до 18:00
+      const minGapMinutes = 45;
 
-      for (let i = 0; i < count; i++) {
-        const delayMs = Math.floor(Math.random() * maxMinutes) * 60_000;
+      const delays = generateSpreadDelays(count, maxMinutes, minGapMinutes);
 
+      delays.forEach((delayMs) => {
         setTimeout(async () => {
           try {
             const user = getRandomUser();
             if (!user) return;
 
             const memories = await loadUserMemory(user.id);
-            const prompt = buildDailyDialoguePrompt(user, memories);
-            const msg = await gptunnelChat([{ role: 'user', content: prompt }]);
+            const facts = await fetchDigestFacts();
 
+            const useFact = facts.length > 0 && Math.random() < 0.6;
+            const prompt = useFact
+              ? buildDailyDialogueWithFactPrompt(user, memories, facts[Math.floor(Math.random() * facts.length)])
+              : buildDailyDialoguePrompt(user, memories);
+
+            const msg = await gptunnelChat([{ role: 'user', content: prompt }]);
             const mention = user.username ? `@${user.username}` : user.firstName;
             await bot.api.sendMessage(channelId, `${mention} ${msg.trim()}`);
           } catch (err) {
@@ -157,7 +178,7 @@ export function setupDailyEventsCron() {
               .catch(() => {});
           }
         }, delayMs);
-      }
+      });
     },
     { timezone: TIMEZONE },
   );

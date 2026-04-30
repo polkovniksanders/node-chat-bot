@@ -1,4 +1,6 @@
 import { API_URLS, TIMEOUT_MEDIUM } from '@/config/api.js';
+import type { DigestFact } from '@/config/prompts.js';
+import type { Riddle } from '@/types/index.js';
 import { TIMEZONE, CHELYABINSK, MORNING_GREETINGS, FEAR_GREED_LABELS } from '@/config/constants.js';
 import { fetchOpenHolidays, checkIsDayOff, fetchCalendRuHolidays, fetchKakoyPrazdnik } from '@/events/fetchers/holidays.js';
 import { fetchRandomPlace, fetchCompactWeather } from '@/events/fetchers/weather.js';
@@ -320,6 +322,53 @@ export async function fetchFinancePost(): Promise<string> {
   }
 
   return text.trimEnd();
+}
+
+// ─── Digest facts cache (для случайных обращений к пользователям) ────────────
+
+let digestFactsCache: { date: string; facts: DigestFact[] } | null = null;
+
+export async function fetchDigestFacts(): Promise<DigestFact[]> {
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: TIMEZONE });
+
+  if (digestFactsCache && digestFactsCache.date === today) {
+    return digestFactsCache.facts;
+  }
+
+  const [catFactResult, dogFactResult, uselessFactResult, dilemmaResult, riddleResult, nostalgiaResult] =
+    await Promise.allSettled([
+      fetchCatFact(),
+      fetchDogFact(),
+      fetchUselessFact(),
+      fetchDilemma(),
+      fetchRiddle(),
+      fetchNostalgia(new Date()),
+    ]);
+
+  const facts: DigestFact[] = [];
+
+  if (catFactResult.status === 'fulfilled' && catFactResult.value) {
+    facts.push({ type: 'cat', label: 'Факт о кошках', content: catFactResult.value });
+  }
+  if (dogFactResult.status === 'fulfilled' && dogFactResult.value) {
+    facts.push({ type: 'dog', label: 'Факт о собаках', content: dogFactResult.value });
+  }
+  if (uselessFactResult.status === 'fulfilled' && uselessFactResult.value) {
+    facts.push({ type: 'useless', label: 'Бесполезный факт дня', content: uselessFactResult.value });
+  }
+  if (dilemmaResult.status === 'fulfilled' && dilemmaResult.value) {
+    facts.push({ type: 'dilemma', label: 'Дилемма дня', content: dilemmaResult.value });
+  }
+  if (riddleResult.status === 'fulfilled' && riddleResult.value) {
+    const r = riddleResult.value as Riddle;
+    facts.push({ type: 'riddle', label: 'Загадка дня', content: r.question });
+  }
+  if (nostalgiaResult.status === 'fulfilled' && nostalgiaResult.value) {
+    facts.push({ type: 'nostalgia', label: 'Ностальгия', content: nostalgiaResult.value });
+  }
+
+  digestFactsCache = { date: today, facts };
+  return facts;
 }
 
 // ─── Legacy export (used by events.ts) ───────────────────────────────────────

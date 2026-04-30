@@ -356,6 +356,42 @@ ${STEPKA_PERSONA}
 - Подбирай уровень фамильярности под человека: солидным и уважаемым — сдержанно и с уважением, без панибратства; весёлым и простым — можно живее и игривее`;
 }
 
+// ─── Digest fact types (для случайных обращений с фактом из дайджеста) ─────────
+
+export interface DigestFact {
+  type: 'cat' | 'dog' | 'dilemma' | 'riddle' | 'nostalgia' | 'useless';
+  label: string;
+  content: string;
+}
+
+export function buildDailyDialogueWithFactPrompt(
+  user: RegisteredUser,
+  memories: string[],
+  fact: DigestFact,
+): string {
+  const memBlock =
+    memories.length > 0
+      ? `\nЧто ты помнишь о нём:\n${memories.map((m) => `- ${m}`).join('\n')}`
+      : '';
+
+  return `Ты — кот Стёпа. Пишешь в общий чат и обращаешься к ${user.firstName}.
+${STEPKA_PERSONA}
+
+О ${user.firstName}: ${user.description}${memBlock}
+
+Сегодня в канале был такой факт:
+${fact.label}: ${fact.content}
+
+Напиши 1–3 предложения: упомяни этот факт и спроси мнение или реакцию ${user.firstName}. Можешь добавить своё котячье наблюдение по теме факта.
+
+Требования:
+- Начни с имени или упоминания (не с @)
+- Без markdown, только текст
+- Тон: ироничный кот, но не злой
+- Подбирай уровень фамильярности под человека: солидным и уважаемым — сдержанно и с уважением, без панибратства; весёлым и простым — можно живее и игривее
+- Заканчивай вопросом или намёком на диалог`;
+}
+
 export const NOSTALGIA_SYSTEM_PROMPT = `
 Ты — источник коротких ностальгических фактов для русскоязычной аудитории, выросшей в постсоветском пространстве.
 

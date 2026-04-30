@@ -1,4 +1,5 @@
 import { gptunnelChatSmart } from '@/ai/gptunnel.js';
+import { callAnthropic } from '@/ai/generateContent.js';
 import { getUserContext, pushToContext } from '@/context/memory.js';
 import { loadUserMemory, saveUserMemory, formatMemoriesForPrompt } from '@/context/userMemory.js';
 import { CHAT_BOT_PROMPT, CHAT_MOODS, LENGTH_MODES, OPENING_STYLES, buildGroupReplyPrompt, PASSIVE_EXTRACTION_PROMPT } from '@/config/prompts.js';
@@ -60,14 +61,31 @@ export async function generateReply(
     ...history.map((m) => ({ role: m.role, content: m.content })),
   ];
 
+  let answer = '';
   try {
-    const answer = (await gptunnelChatSmart(messages, { temperature })).trim() || 'Не понял, повтори.';
-    pushToContext(chatId, userId, 'assistant', answer);
-    return answer;
+    answer = (await gptunnelChatSmart(messages, { temperature })).trim();
   } catch (err) {
-    console.error('Chat error:', err);
-    return 'Ошибка при обращении к модели.';
+    console.error('[generateReply] GPTunnel error, trying Anthropic fallback:', err);
   }
+
+  if (!answer) {
+    try {
+      const systemMsg = messages.find((m) => m.role === 'system')?.content ?? '';
+      const userMsgs = messages.filter((m) => m.role !== 'system');
+      const lastUserContent = userMsgs.at(-1)?.content ?? userMessage;
+      answer = (await callAnthropic(systemMsg, lastUserContent)).trim();
+      if (answer) console.log('[generateReply] Anthropic fallback succeeded');
+    } catch (err2) {
+      console.error('[generateReply] Anthropic fallback error:', err2);
+    }
+  }
+
+  if (!answer) {
+    return 'Не понял, повтори.';
+  }
+
+  pushToContext(chatId, userId, 'assistant', answer);
+  return answer;
 }
 
 const MEMORY_TRIGGER = /запомни|remember|не забудь|сохрани/i;
