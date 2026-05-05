@@ -327,6 +327,78 @@ ADMIN_USER_IDS=123456789,987654321
 
 ---
 
+## Инструкция для администратора
+
+Все команды доступны только администраторам (чьи Telegram ID указаны в `ADMIN_USER_IDS` в `.env`).
+
+### Просмотр
+
+**Список всех модулей:**
+```
+/module_list
+```
+
+**Статус модулей в текущем чате:**
+```
+/module_status
+```
+
+**Статус модулей в конкретном чате:**
+```
+/module_status -1001234567890
+```
+
+### Включение / отключение
+
+**Отключить модуль в текущем чате:**
+```
+/module_disable emoji-reactions
+```
+
+**Включить модуль обратно:**
+```
+/module_enable emoji-reactions
+```
+
+**Для другого чата (input-модули):**
+```
+/module_disable ai-chat -1001234567890
+/module_enable ai-chat @username_чата
+```
+
+**Для cron-модулей** (без chatId — берётся автоматически из `.env`):
+```
+/module_disable daily-cycle
+/module_disable daily-events
+/module_disable sora-videos
+```
+
+### Модули
+
+| Название | Что делает |
+|---|---|
+| `daily-cycle` | 5-дневный цикл постов в основной канал |
+| `daily-events` | Утренний дайджест (кофе, факты, финансы) |
+| `sora-videos` | Постинг Sora-видео из очереди |
+| `ai-chat` | AI-ответы на упоминания и в личке |
+| `voice-transcription` | Расшифровка голосовых + `/transcribe` |
+| `image-generation` | Генерация картинок по `/generate` |
+| `weather` | Погода по `/weather` и "погода" в личке |
+| `secret-whisper` | Анонимные шёпоты в канал (`/secret`) |
+| `events-manual` | Ручной запуск дайджеста (`/events`) |
+| `emoji-reactions` | Случайные реакции в группах (15%) |
+| `user-memory` | Запоминание фактов о пользователях |
+| `sora-admin` | Загрузка Sora-видео через DM |
+| `say-admin` | Команда `/say` для обращения к юзерам |
+
+### Важно
+
+- Дефолт — все модули **включены**. Отключение сохраняется в `data/module-config.json` и переживает перезапуск.
+- Для cron-модулей (`daily-cycle`, `daily-events`, `sora-videos`) chatId указывать не нужно.
+- Чтобы сбросить все настройки — удалить `data/module-config.json` (или отдельные ключи в нём).
+
+---
+
 ## Ссылки
 
 ### Internal
