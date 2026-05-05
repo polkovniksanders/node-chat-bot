@@ -1,6 +1,7 @@
 import { Bot, Context } from 'grammy';
 import { transcribeAudio } from '@/ai/transcribe.js';
 import { downloadVoice } from '@/bot/voiceUtils.js';
+import { isEnabled } from '@/modules/moduleConfig.js';
 
 async function handleTranscription(ctx: Context, fileId: string) {
   const status = await ctx.reply('🎙 Расшифровываю...', {
@@ -30,11 +31,13 @@ export function setupVoiceHandler(botInstance: Bot) {
   // Личка: войс расшифровывается сразу (пользователь сам отправил боту)
   botInstance.on('message:voice', async (ctx) => {
     if (ctx.chat.type !== 'private') return;
+    if (!isEnabled(ctx.chat.id, 'voice-transcription')) return;
     await handleTranscription(ctx, ctx.message.voice.file_id);
   });
 
   // /transcribe (/t) в ответ на войс — работает в группах и личке
   const transcribeHandler = async (ctx: Context) => {
+    if (!isEnabled(ctx.chat!.id, 'voice-transcription')) return;
     const voice =
       ctx.message?.reply_to_message?.voice ??
       (ctx.message?.external_reply as any)?.voice;

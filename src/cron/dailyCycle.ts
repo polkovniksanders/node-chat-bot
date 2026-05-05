@@ -8,6 +8,7 @@ import { getYoutubeVideoPost } from '@/content/youtubeVideos.js';
 import { generatePetNamesPost } from '@/content/petNames.js';
 import { generateAnimalStoryPost } from '@/content/animalStory.js';
 import { TEST_CHANNEL, TIMEZONE } from '@/config/constants.js';
+import { isEnabled } from '@/modules/moduleConfig.js';
 
 const CHANNEL_ID = process.env.CHANNEL_ID!;
 
@@ -58,6 +59,8 @@ export function setupDailyCycleCron() {
   cron.schedule(
     '0 11 * * *',
     async () => {
+      if (!isEnabled(CHANNEL_ID, 'daily-cycle')) return;
+
       const { day } = await consumeCurrentDay();
 
       console.log(`📅 Daily cycle — день ${day}`);

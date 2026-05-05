@@ -6,6 +6,7 @@ import {
   isAlreadyInQueue,
   getQueueLength,
 } from '@/content/soraQueue.js';
+import { isEnabled } from '@/modules/moduleConfig.js';
 
 const ADMIN_USER_ID = parseInt(process.env.ADMIN_USER_ID ?? '0', 10);
 
@@ -28,6 +29,7 @@ export function setupSoraHandler(): void {
     if (ctx.chat.type !== 'private') return;
     const userId = ctx.from?.id;
     if (!userId || !isAdmin(userId)) return;
+    if (!isEnabled(ctx.chat.id, 'sora-admin')) return;
 
     const caption = ctx.message.caption?.trim() ?? '';
     if (!caption.toLowerCase().startsWith('/addsora')) return;
