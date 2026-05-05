@@ -10,6 +10,8 @@ import { setupSoraHandler } from '@/bot/soraHandler.js';
 import { setupVoiceHandler } from '@/bot/voiceHandler.js';
 import { setupSayHandler } from '@/bot/sayHandler.js';
 import { setupWhisperHandler } from '@/bot/whisperHandler.js';
+import { setupModuleAdminHandler } from '@/bot/moduleAdminHandler.js';
+import { isEnabled } from '@/modules/moduleConfig.js';
 import { findUserById, RegisteredUser } from '@/config/users.js';
 import { loadUserMemory } from '@/context/userMemory.js';
 import { buildUserContextBlock, buildReplyContextBlock } from '@/config/prompts.js';
@@ -33,12 +35,14 @@ async function sendWeather(ctx: Context, city: string) {
 }
 
 export function setupHandlers(botInstance: typeof bot) {
+  setupModuleAdminHandler();
   setupSoraHandler();
   setupSayHandler();
   setupWhisperHandler(botInstance);
   setupVoiceHandler(botInstance);
 
   botInstance.command('events', async (ctx) => {
+    if (!isEnabled(ctx.chat.id, 'events-manual')) return;
     const channelId = process.env.EVENTS_CHANNEL_ID;
     if (!channelId) {
       await ctx.reply('❌ EVENTS_CHANNEL_ID не задан в .env');
@@ -58,12 +62,14 @@ export function setupHandlers(botInstance: typeof bot) {
 
   // /weather [город] — работает в личке и в группах
   botInstance.command('weather', async (ctx) => {
+    if (!isEnabled(ctx.chat.id, 'weather')) return;
     const city = ctx.match.trim() || DEFAULT_CITY;
     await sendWeather(ctx, city);
   });
 
   // /generate <промпт> — генерация изображения, 1 раз в час на пользователя
   botInstance.command('generate', async (ctx) => {
+    if (!isEnabled(ctx.chat.id, 'image-generation')) return;
     const userId = ctx.from?.id;
     if (!userId) return;
 
@@ -100,7 +106,7 @@ export function setupHandlers(botInstance: typeof bot) {
     if (ctx.chat.type === 'private') return;
     if (ctx.msg.text) return; // текстовые обрабатывает msg:text
 
-    if (shouldReactRandomly()) {
+    if (isEnabled(ctx.chat.id, 'emoji-reactions') && shouldReactRandomly()) {
       tryReact(ctx, ctx.msg.message_id).catch(() => {});
     }
   });
@@ -114,24 +120,31 @@ export function setupHandlers(botInstance: typeof bot) {
     if (messageText.startsWith('/')) return;
 
     if (ctx.chat.type === 'private') {
+      const chatId = ctx.chat.id;
+
       // "погода [город]" — альтернатива /weather для личных сообщений
       const weatherMatch = messageText.match(/^погода\s*(.*)/i);
       if (weatherMatch) {
+        if (!isEnabled(chatId, 'weather')) return;
         await sendWeather(ctx, weatherMatch[1].trim() || DEFAULT_CITY);
         return;
       }
 
+      if (!isEnabled(chatId, 'ai-chat')) return;
+
       // Обычный чат с ИИ (private chat всегда имеет from)
       const fromId = ctx.from!.id;
-      const reply = await generateReply(ctx.chat.id, fromId, messageText);
+      const reply = await generateReply(chatId, fromId, messageText);
       try {
         await ctx.reply(reply, { parse_mode: 'HTML' });
       } catch {
         await ctx.reply(reply.replace(/<[^>]*>/g, ''));
       }
-      const remembered = await maybeRememberFact(fromId, messageText);
-      if (remembered) await ctx.reply('🐾 Запомнил!');
-      extractAndSaveFact(fromId, messageText).catch(() => {});
+      if (isEnabled(chatId, 'user-memory')) {
+        const remembered = await maybeRememberFact(fromId, messageText);
+        if (remembered) await ctx.reply('🐾 Запомнил!');
+        extractAndSaveFact(fromId, messageText).catch(() => {});
+      }
       return;
     }
 
@@ -176,7 +189,7 @@ export function setupHandlers(botInstance: typeof bot) {
     });
 
     // Случайная реакция на любое сообщение в группе (15%)
-    if (!isChannelPost && shouldReactRandomly()) {
+    if (!isChannelPost && isEnabled(ctx.chat.id, 'emoji-reactions') && shouldReactRandomly()) {
       tryReact(ctx, ctx.msg.message_id, messageText).catch(() => {});
     }
 
@@ -186,6 +199,8 @@ export function setupHandlers(botInstance: typeof bot) {
     if (!isChannelPost && !isReplyToBot && !isReplyToChannel && !isMentioned) return;
 
     const chatId = ctx.chat.id;
+
+    if (!isEnabled(chatId, 'ai-chat')) return;
 
     logger.info('responding to trigger', {
       trigger: isReplyToBot ? 'reply-to-bot' : isReplyToChannel ? 'reply-to-channel' : 'mention',
@@ -265,7 +280,7 @@ export function setupHandlers(botInstance: typeof bot) {
       });
     }
 
-    if (!isChannelPost && userId) {
+    if (!isChannelPost && userId && isEnabled(chatId, 'user-memory')) {
       const remembered = await maybeRememberFact(userId, userText);
       if (remembered) {
         await ctx.reply('🐾 Запомнил!', {

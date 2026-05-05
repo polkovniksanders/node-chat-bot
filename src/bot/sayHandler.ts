@@ -3,6 +3,7 @@ import { getRandomUser, findUserById, REGISTERED_USERS } from '@/config/users.js
 import { loadUserMemory } from '@/context/userMemory.js';
 import { buildDailyDialoguePrompt } from '@/config/prompts.js';
 import { gptunnelChat } from '@/ai/gptunnel.js';
+import { isEnabled } from '@/modules/moduleConfig.js';
 
 const ADMIN_USER_ID = parseInt(process.env.ADMIN_USER_ID ?? '0', 10);
 
@@ -15,6 +16,7 @@ export function setupSayHandler(): void {
     if (ctx.chat.type !== 'private') return;
     const userId = ctx.from?.id;
     if (!userId || !isAdmin(userId)) return;
+    if (!isEnabled(ctx.chat.id, 'say-admin')) return;
 
     const channelId = process.env.EVENTS_CHANNEL_ID;
     if (!channelId) {
