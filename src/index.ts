@@ -1,4 +1,6 @@
 import 'dotenv/config';
+import { createServer } from 'node:http';
+import { webhookCallback } from 'grammy';
 import { bot, initBotInfo } from '@/botInstance.js';
 import { setupHandlers } from '@/bot/handlers.js';
 import { setupDailyCycleCron } from '@/cron/dailyCycle.js';
@@ -25,7 +27,47 @@ if (process.env.EVENTS_CHANNEL_ID) {
 
 bot.catch((err) => logger.error('Unhandled bot error', { err: String(err) }));
 
-initBotInfo().then(() => {
-  logger.info('Bot started', { mode: 'long-polling' });
-  bot.start();
+const WEBHOOK_PORT = Number(process.env.WEBHOOK_PORT ?? 3001);
+const WEBHOOK_URL = process.env.WEBHOOK_URL ?? 'https://berghub.ru/bot';
+const SECRET_TOKEN = process.env.WEBHOOK_SECRET ?? '';
+
+const handleUpdate = webhookCallback(bot, 'http');
+
+const server = createServer(async (req, res) => {
+  if (req.method === 'POST' && req.url === '/bot') {
+    if (SECRET_TOKEN && req.headers['x-telegram-bot-api-secret-token'] !== SECRET_TOKEN) {
+      res.writeHead(403);
+      res.end('Forbidden');
+      return;
+    }
+    await handleUpdate(req, res);
+    return;
+  }
+  res.writeHead(200);
+  res.end('OK');
+});
+
+async function setWebhookWithRetry(retries = 5): Promise<void> {
+  for (let i = 0; i < retries; i++) {
+    try {
+      await bot.api.setWebhook(WEBHOOK_URL, { secret_token: SECRET_TOKEN || undefined });
+      logger.info('Webhook set', { url: WEBHOOK_URL });
+      return;
+    } catch (err: any) {
+      const retryAfter = err?.parameters?.retry_after ?? 2;
+      if (err?.error_code === 429 && i < retries - 1) {
+        logger.warn(`setWebhook 429, retry in ${retryAfter}s`);
+        await new Promise((r) => setTimeout(r, retryAfter * 1000));
+      } else {
+        throw err;
+      }
+    }
+  }
+}
+
+initBotInfo().then(async () => {
+  await setWebhookWithRetry();
+  server.listen(WEBHOOK_PORT, () => {
+    logger.info('Bot started', { mode: 'webhook', port: WEBHOOK_PORT, url: WEBHOOK_URL });
+  });
 });
