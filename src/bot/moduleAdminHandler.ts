@@ -145,6 +145,7 @@ export function setupModuleAdminHandler(): void {
   // /module_status [chatId]
   bot.command('module_status', async (ctx) => {
     const userId = ctx.from?.id;
+    logger.info('module_status called', { userId, isAdmin: userId ? isAdmin(userId) : false, adminIds: [...ADMIN_IDS] });
     if (!userId || !isAdmin(userId)) return;
 
     const arg = ctx.match.trim();
@@ -169,6 +170,7 @@ export function setupModuleAdminHandler(): void {
   // /module_list
   bot.command('module_list', async (ctx) => {
     const userId = ctx.from?.id;
+    logger.info('module_list called', { userId, isAdmin: userId ? isAdmin(userId) : false, adminIds: [...ADMIN_IDS] });
     if (!userId || !isAdmin(userId)) return;
 
     const lines = MODULES.map((def) => {
