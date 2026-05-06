@@ -2,6 +2,7 @@ import { readFile, writeFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
 import { bot } from '@/botInstance.js';
+import { isEnabled } from '@/modules/moduleConfig.js';
 
 interface WhisperEntry {
   id: number;
@@ -34,6 +35,7 @@ async function writeWhispers(entries: WhisperEntry[]): Promise<void> {
 
 export function setupWhisperHandler(botInstance: typeof bot) {
   botInstance.command('secret', async (ctx) => {
+    if (!isEnabled(ctx.chat.id, 'secret-whisper')) return;
     if (ctx.chat.type !== 'private') {
       await ctx.reply('🤫 Шёпоты принимаются только в личке.');
       return;

@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import { bot } from '@/botInstance.js';
 import { getNextFromQueue, markAsPosted } from '@/content/soraQueue.js';
 import { generateSoraPostText } from '@/content/soraPost.js';
+import { isEnabled } from '@/modules/moduleConfig.js';
 
 const CHANNEL_ID = process.env.CHANNEL_ID!;
 const TEST_CHANNEL = '@node_js_test';
@@ -32,6 +33,7 @@ export function setupSoraVideoCron(): void {
   cron.schedule(
     '0 18 * * *',
     async () => {
+      if (!isEnabled(CHANNEL_ID, 'sora-videos')) return;
       console.log('⏰ Sora video cron triggered');
       try {
         await postNextSoraVideo();

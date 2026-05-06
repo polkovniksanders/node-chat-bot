@@ -15,6 +15,7 @@ import { getRandomUser } from '@/config/users.js';
 import { loadUserMemory } from '@/context/userMemory.js';
 import { buildCoffeeGreetingPrompt, buildDailyDialoguePrompt, buildDailyDialogueWithFactPrompt } from '@/config/prompts.js';
 import { gptunnelChat } from '@/ai/gptunnel.js';
+import { isEnabled } from '@/modules/moduleConfig.js';
 
 function generateSpreadDelays(count: number, maxMinutes: number, minGapMinutes: number): number[] {
   const delays: number[] = [];
@@ -37,6 +38,7 @@ export function setupDailyEventsCron() {
   cron.schedule(
     '55 8 * * *',
     async () => {
+      if (!isEnabled(channelId, 'daily-events')) return;
       try {
         const now = new Date(
           new Date().toLocaleString('en-US', { timeZone: 'Asia/Yekaterinburg' }),
@@ -87,6 +89,7 @@ export function setupDailyEventsCron() {
   cron.schedule(
     '0 9 * * *',
     async () => {
+      if (!isEnabled(channelId, 'daily-events')) return;
       try {
         const now = new Date(
           new Date().toLocaleString('en-US', { timeZone: 'Asia/Yekaterinburg' }),
@@ -105,6 +108,7 @@ export function setupDailyEventsCron() {
   cron.schedule(
     '5 9 * * *',
     async () => {
+      if (!isEnabled(channelId, 'daily-events')) return;
       try {
         const text = await fetchFinancePost();
         await bot.api.sendMessage(channelId, text, { parse_mode: 'HTML' });
@@ -120,6 +124,7 @@ export function setupDailyEventsCron() {
   cron.schedule(
     '10 9 * * *',
     async () => {
+      if (!isEnabled(channelId, 'daily-events')) return;
       try {
         const [trackResult, movieResult] = await Promise.allSettled([
           fetchTrackOfDay().then(buildTrackMessage),
@@ -146,6 +151,7 @@ export function setupDailyEventsCron() {
   cron.schedule(
     '0 10 * * *',
     () => {
+      if (!isEnabled(channelId, 'daily-events')) return;
       const count = Math.floor(Math.random() * 3) + 2; // 2, 3 или 4
       const maxMinutes = 8 * 60; // окно до 18:00
       const minGapMinutes = 45;
