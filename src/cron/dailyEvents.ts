@@ -161,6 +161,8 @@ export function setupDailyEventsCron() {
       delays.forEach((delayMs) => {
         setTimeout(async () => {
           try {
+            if (!isEnabled(channelId, 'daily-events')) return;
+            if (!isEnabled(channelId, 'ai-chat')) return;
             const user = getRandomUser();
             if (!user) return;
 
