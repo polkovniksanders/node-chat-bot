@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import { InlineKeyboard } from 'grammy';
 import { bot } from '@/botInstance.js';
 import {
@@ -8,7 +9,17 @@ import {
 } from '@/content/soraQueue.js';
 import { isEnabled } from '@/modules/moduleConfig.js';
 
-const ADMIN_USER_ID = parseInt(process.env.ADMIN_USER_ID ?? '0', 10);
+function buildAdminSet(): Set<number> {
+  const ids = new Set<number>();
+  const raw = [process.env.ADMIN_USER_IDS ?? '', process.env.ADMIN_USER_ID ?? ''].join(',');
+  for (const part of raw.split(',')) {
+    const n = parseInt(part.trim(), 10);
+    if (!isNaN(n) && n > 0) ids.add(n);
+  }
+  return ids;
+}
+
+const adminIds = buildAdminSet();
 
 interface PendingItem {
   fileId: string;
@@ -20,7 +31,7 @@ interface PendingItem {
 const pending = new Map<string, PendingItem>();
 
 function isAdmin(userId: number): boolean {
-  return ADMIN_USER_ID > 0 && userId === ADMIN_USER_ID;
+  return adminIds.has(userId);
 }
 
 export function setupSoraHandler(): void {
@@ -54,7 +65,7 @@ export function setupSoraHandler(): void {
       return;
     }
 
-    const tempId = `${Date.now()}_${userId}`;
+    const tempId = randomBytes(16).toString('hex');
     pending.set(tempId, { fileId, fileUniqueId, description });
     setTimeout(() => pending.delete(tempId), 5 * 60 * 1000);
 
@@ -73,6 +84,11 @@ export function setupSoraHandler(): void {
   });
 
   bot.callbackQuery(/^sora:confirm:(.+)$/, async (ctx) => {
+    if (!ctx.from?.id || !isAdmin(ctx.from.id)) {
+      await ctx.answerCallbackQuery({ text: '⛔ Нет доступа' });
+      return;
+    }
+
     const tempId = ctx.match[1];
     const item = pending.get(tempId);
 
@@ -100,6 +116,10 @@ export function setupSoraHandler(): void {
   });
 
   bot.callbackQuery(/^sora:cancel:(.+)$/, async (ctx) => {
+    if (!ctx.from?.id || !isAdmin(ctx.from.id)) {
+      await ctx.answerCallbackQuery({ text: '⛔ Нет доступа' });
+      return;
+    }
     const tempId = ctx.match[1];
     pending.delete(tempId);
     await ctx.answerCallbackQuery('Отменено');

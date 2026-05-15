@@ -5,10 +5,20 @@ import { buildDailyDialoguePrompt } from '@/config/prompts.js';
 import { gptunnelChat } from '@/ai/gptunnel.js';
 import { isEnabled } from '@/modules/moduleConfig.js';
 
-const ADMIN_USER_ID = parseInt(process.env.ADMIN_USER_ID ?? '0', 10);
+function buildAdminSet(): Set<number> {
+  const ids = new Set<number>();
+  const raw = [process.env.ADMIN_USER_IDS ?? '', process.env.ADMIN_USER_ID ?? ''].join(',');
+  for (const part of raw.split(',')) {
+    const n = parseInt(part.trim(), 10);
+    if (!isNaN(n) && n > 0) ids.add(n);
+  }
+  return ids;
+}
+
+const adminIds = buildAdminSet();
 
 function isAdmin(userId: number): boolean {
-  return ADMIN_USER_ID > 0 && userId === ADMIN_USER_ID;
+  return adminIds.has(userId);
 }
 
 export function setupSayHandler(): void {
