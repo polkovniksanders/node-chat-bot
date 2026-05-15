@@ -2,7 +2,8 @@ import { readFile, writeFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
 import { bot } from '@/botInstance.js';
-import { isEnabled } from '@/modules/moduleConfig.js';
+import { isEnabled, getCronChatIds } from '@/modules/moduleConfig.js';
+import { logger } from '@/utils/logger.js';
 
 interface WhisperEntry {
   id: number;
@@ -47,8 +48,8 @@ export function setupWhisperHandler(botInstance: typeof bot) {
       return;
     }
 
-    const channelId = process.env.EVENTS_CHANNEL_ID;
-    if (!channelId) {
+    const chatIds = getCronChatIds('daily-events');
+    if (chatIds.length === 0) {
       await ctx.reply('❌ Канал для шёпотов не настроен.');
       return;
     }
@@ -64,14 +65,21 @@ export function setupWhisperHandler(botInstance: typeof bot) {
       published: false,
     };
 
+    const message = `🤫 Мне тут кое-кто сообщил, что ${text}\n\n<i>— Это мнение анонимного шептуна. Степка лично за это не отвечает и вообще спал.</i>`;
+
     try {
-      await bot.api.sendMessage(channelId, `🤫 Мне тут кое-кто сообщил, что ${text}\n\n<i>— Это мнение анонимного шептуна. Степка лично за это не отвечает и вообще спал.</i>`, {
-        parse_mode: 'HTML',
-      });
-      entry.published = true;
-      await ctx.reply('✅ Твой шёпот услышан и передан в канал 🐾');
+      const results = await Promise.allSettled(
+        chatIds.map((chatId) => bot.api.sendMessage(chatId, message, { parse_mode: 'HTML' })),
+      );
+      const ok = results.filter((r) => r.status === 'fulfilled').length;
+      if (ok > 0) {
+        entry.published = true;
+        await ctx.reply('✅ Твой шёпот услышан и передан в канал 🐾');
+      } else {
+        await ctx.reply('❌ Не удалось передать шёпот. Попробуй позже.');
+      }
     } catch (err) {
-      console.error('❌ Ошибка публикации шёпота:', err);
+      logger.error('[whisper] Send failed', { err: String(err) });
       await ctx.reply('❌ Не удалось передать шёпот. Попробуй позже.');
     }
 

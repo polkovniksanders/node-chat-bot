@@ -2,8 +2,6 @@ import type { PlaceInfo } from '@/types/index.js'; // used for FALLBACK_PLACES
 
 export const TIMEZONE = 'Asia/Yekaterinburg';
 
-export const TEST_CHANNEL = '@node_js_test';
-
 export const DEFAULT_CITY = 'Челябинск';
 
 export const CHELYABINSK = {

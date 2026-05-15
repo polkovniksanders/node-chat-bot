@@ -1,7 +1,15 @@
 import { CommandContext, Context } from 'grammy';
 import { bot } from '@/botInstance.js';
-import { isEnabled, setEnabled, getStatus, type ModuleName } from '@/modules/moduleConfig.js';
-import { MODULES, findModule, getDefaultChatId } from '@/modules/moduleRegistry.js';
+import {
+  getStatus,
+  getCronChatIds,
+  enableCronModule,
+  disableCronModule,
+  setInputModule,
+  normalizeChatId,
+  type ModuleName,
+} from '@/modules/moduleConfig.js';
+import { MODULES, findModule } from '@/modules/moduleRegistry.js';
 import { logger } from '@/utils/logger.js';
 
 // Support both ADMIN_USER_IDS (plural, comma-separated) and legacy ADMIN_USER_ID (singular)
@@ -20,51 +28,69 @@ function buildAdminSet(): Set<number> {
 const ADMIN_IDS = buildAdminSet();
 
 if (ADMIN_IDS.size === 0) {
-  logger.warn('ADMIN_USER_IDS не задан — управление модулями недоступно');
+  logger.warn(
+    '[admin] No admin IDs configured — module management unavailable. Set ADMIN_USER_IDS in .env',
+  );
 }
 
 function isAdmin(userId: number): boolean {
   return ADMIN_IDS.has(userId);
 }
 
-/** Resolve a chatId argument: numeric string or @username → numeric string */
-async function resolveChatId(arg: string): Promise<string | null> {
-  if (/^-?\d+$/.test(arg)) return arg;
-  if (arg.startsWith('@')) {
-    try {
-      const chat = await bot.api.getChat(arg);
-      return String(chat.id);
-    } catch {
-      return null;
-    }
-  }
-  return null;
-}
-
 function formatStatus(chatId: string): string {
   const status = getStatus(chatId);
-  const lines = MODULES.map((def) => {
+  const cronLines: string[] = [];
+  const inputLines: string[] = [];
+
+  for (const def of MODULES) {
     const s = status[def.name];
-    const icon = s.enabled ? '✅' : '❌';
-    const suffix = s.isDefault ? ' <i>(дефолт)</i>' : '';
-    return `${icon} <code>${def.name}</code>${suffix}`;
-  });
-  return `📋 <b>Статус модулей для чата</b> <code>${chatId}</code>:\n\n${lines.join('\n')}`;
+    if (s.isCronModule) {
+      const count = getCronChatIds(def.name).length;
+      const isHere = s.enabled;
+      const icon = isHere ? '🟢' : '⚪';
+      cronLines.push(
+        `${icon} <code>${def.name}</code> (${count} чатов${isHere ? ', включая этот' : ''})`,
+      );
+    } else {
+      const icon = s.enabled ? '✅' : '❌';
+      const suffix = s.isDefault ? ' <i>(дефолт)</i>' : '';
+      inputLines.push(`${icon} <code>${def.name}</code>${suffix}`);
+    }
+  }
+
+  return (
+    `📋 <b>Статус модулей для чата</b> <code>${chatId}</code>:\n\n` +
+    `<b>🕒 Cron-модули:</b>\n${cronLines.join('\n')}\n\n` +
+    `<b>⚡ Input/Admin модули:</b>\n${inputLines.join('\n')}`
+  );
 }
 
-async function handleToggle(
-  ctx: CommandContext<Context>,
-  targetEnabled: boolean,
-): Promise<void> {
+function formatListAll(): string {
+  const lines: string[] = [];
+  for (const def of MODULES) {
+    if (def.class === 'cron') {
+      const chats = getCronChatIds(def.name);
+      const chatList = chats.length > 0 ? chats.join(', ') : '—';
+      lines.push(`🟢 <code>${def.name}</code> [cron]\n  Чаты: ${chatList}\n  ${def.description}`);
+    } else {
+      const classLabel = def.class === 'admin' ? '[admin]' : '[input]';
+      lines.push(`• <code>${def.name}</code> ${classLabel}\n  ${def.description}`);
+    }
+  }
+  return `📦 <b>Все модули (глобальный вид):</b>\n\n${lines.join('\n\n')}`;
+}
+
+async function handleToggle(ctx: CommandContext<Context>, targetEnabled: boolean): Promise<void> {
   const userId = ctx.from?.id;
   if (!userId || !isAdmin(userId)) return; // silent ignore for non-admins
 
   const parts = ctx.match.trim().split(/\s+/);
   const moduleName = parts[0];
-  const chatIdArg = parts[1];
 
   if (!moduleName) {
-    await ctx.reply('❌ Укажи имя модуля.\nПример: /module_disable emoji-reactions\nСписок: /module_list');
+    await ctx.reply(
+      '❌ Укажи имя модуля.\nПример: /module_enable daily-cycle\nСписок: /module_list',
+    );
     return;
   }
 
@@ -77,109 +103,89 @@ async function handleToggle(
     return;
   }
 
-  let resolvedChatId: string;
+  const rawChatId = String(ctx.chat!.id);
 
   if (def.class === 'cron') {
-    const defaultId = getDefaultChatId(def);
-    if (!defaultId) {
-      await ctx.reply(`❌ Для модуля <code>${def.name}</code> не задан выходной канал в .env`, {
+    // Normalize chatId to numeric before storing
+    const normalizedId = await normalizeChatId(rawChatId);
+    if (targetEnabled) {
+      await enableCronModule(normalizedId, def.name);
+      await ctx.reply(
+        `✅ Модуль <code>${def.name}</code> включён для этого чата (<code>${normalizedId}</code>)`,
+        { parse_mode: 'HTML' },
+      );
+    } else {
+      await disableCronModule(normalizedId, def.name);
+      await ctx.reply(`🔴 Модуль <code>${def.name}</code> выключен для этого чата`, {
         parse_mode: 'HTML',
       });
-      return;
     }
-    if (chatIdArg) {
-      const resolved = await resolveChatId(chatIdArg);
-      if (!resolved || resolved !== defaultId) {
-        await ctx.reply(
-          `❌ Модуль <code>${def.name}</code> работает только с каналом <code>${defaultId}</code>.\n` +
-            `Используй команду без аргумента chatId.`,
-          { parse_mode: 'HTML' },
-        );
-        return;
-      }
-    }
-    resolvedChatId = defaultId;
   } else {
-    if (chatIdArg) {
-      const resolved = await resolveChatId(chatIdArg);
-      if (!resolved) {
-        await ctx.reply(`❌ Не удалось определить chatId из аргумента: <code>${chatIdArg}</code>`, {
-          parse_mode: 'HTML',
-        });
-        return;
-      }
-      resolvedChatId = resolved;
-    } else {
-      resolvedChatId = String(ctx.chat.id);
-    }
+    await setInputModule(rawChatId, def.name, targetEnabled);
+    const action = targetEnabled ? 'включён ✅' : 'выключен 🔴';
+    await ctx.reply(`Модуль <code>${def.name}</code> ${action} для этого чата`, {
+      parse_mode: 'HTML',
+    });
   }
-
-  await setEnabled(resolvedChatId, def.name as ModuleName, targetEnabled);
-
-  const action = targetEnabled ? 'включён' : 'выключен';
-  const icon = targetEnabled ? '✅' : '🔴';
-  await ctx.reply(
-    `${icon} Модуль <code>${def.name}</code> ${action} для чата <code>${resolvedChatId}</code>`,
-    { parse_mode: 'HTML' },
-  );
 
   logger.info('module toggled', {
     module: def.name,
-    chatId: resolvedChatId,
+    chatId: rawChatId,
     enabled: targetEnabled,
     by: userId,
   });
 }
 
 export function setupModuleAdminHandler(): void {
-  // /module_enable <module> [chatId]
+  // /module_enable <module>
   bot.command('module_enable', async (ctx) => {
     await handleToggle(ctx, true);
   });
 
-  // /module_disable <module> [chatId]
+  // /module_disable <module>
   bot.command('module_disable', async (ctx) => {
     await handleToggle(ctx, false);
   });
 
-  // /module_status [chatId]
+  // /module_status — статус для текущего чата
   bot.command('module_status', async (ctx) => {
     const userId = ctx.from?.id;
-    logger.info('module_status called', { userId, isAdmin: userId ? isAdmin(userId) : false, adminIds: [...ADMIN_IDS] });
+    logger.info('module_status called', { userId, isAdmin: userId ? isAdmin(userId) : false });
     if (!userId || !isAdmin(userId)) return;
 
-    const arg = ctx.match.trim();
-    let targetChatId: string;
-
-    if (arg) {
-      const resolved = await resolveChatId(arg);
-      if (!resolved) {
-        await ctx.reply(`❌ Не удалось определить chatId из аргумента: <code>${arg}</code>`, {
-          parse_mode: 'HTML',
-        });
-        return;
-      }
-      targetChatId = resolved;
-    } else {
-      targetChatId = String(ctx.chat.id);
-    }
-
+    const targetChatId = String(ctx.chat.id);
     await ctx.reply(formatStatus(targetChatId), { parse_mode: 'HTML' });
   });
 
-  // /module_list
+  // /module_list [all]
   bot.command('module_list', async (ctx) => {
     const userId = ctx.from?.id;
-    logger.info('module_list called', { userId, isAdmin: userId ? isAdmin(userId) : false, adminIds: [...ADMIN_IDS] });
+    logger.info('module_list called', { userId, isAdmin: userId ? isAdmin(userId) : false });
     if (!userId || !isAdmin(userId)) return;
 
+    const arg = ctx.match.trim().toLowerCase();
+    if (arg === 'all') {
+      await ctx.reply(formatListAll(), { parse_mode: 'HTML' });
+      return;
+    }
+
+    // Default: show status for current chat
+    const chatId = String(ctx.chat.id);
+    const status = getStatus(chatId);
     const lines = MODULES.map((def) => {
-      const classLabel = def.class === 'cron' ? '[cron]' : def.class === 'admin' ? '[admin]' : '[input]';
-      return `• <code>${def.name}</code> ${classLabel}\n  ${def.description}`;
+      if (def.class === 'cron') {
+        const isHere = status[def.name].enabled;
+        return `${isHere ? '🟢' : '⚪'} <code>${def.name}</code> [cron] — ${isHere ? 'активен здесь' : 'не активен'}`;
+      }
+      const classLabel = def.class === 'admin' ? '[admin]' : '[input]';
+      const enabled = status[def.name].enabled;
+      return `${enabled ? '✅' : '❌'} <code>${def.name}</code> ${classLabel}`;
     });
 
-    await ctx.reply(`📦 <b>Доступные модули:</b>\n\n${lines.join('\n\n')}`, {
-      parse_mode: 'HTML',
-    });
+    await ctx.reply(
+      `📦 <b>Модули для чата <code>${chatId}</code>:</b>\n\n${lines.join('\n')}\n\n` +
+        `Используй <code>/module_list all</code> для глобального вида`,
+      { parse_mode: 'HTML' },
+    );
   });
 }

@@ -3,7 +3,7 @@ import { getRandomUser, findUserById, REGISTERED_USERS } from '@/config/users.js
 import { loadUserMemory } from '@/context/userMemory.js';
 import { buildDailyDialoguePrompt } from '@/config/prompts.js';
 import { gptunnelChat } from '@/ai/gptunnel.js';
-import { isEnabled } from '@/modules/moduleConfig.js';
+import { isEnabled, getCronChatIds } from '@/modules/moduleConfig.js';
 
 function buildAdminSet(): Set<number> {
   const ids = new Set<number>();
@@ -28,9 +28,10 @@ export function setupSayHandler(): void {
     if (!userId || !isAdmin(userId)) return;
     if (!isEnabled(ctx.chat.id, 'say-admin')) return;
 
-    const channelId = process.env.EVENTS_CHANNEL_ID;
+    const chatIds = getCronChatIds('daily-events');
+    const channelId = chatIds[0];
     if (!channelId) {
-      await ctx.reply('❌ EVENTS_CHANNEL_ID не задан в .env');
+      await ctx.reply('❌ Нет чатов для отправки. Включи модуль daily-events командой /module_enable daily-events в нужном чате.');
       return;
     }
 
