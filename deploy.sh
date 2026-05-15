@@ -81,7 +81,7 @@ else
   exit 1
 fi
 
-REQUIRED_VARS=("TELEGRAM_TOKEN" "CHANNEL_ID")
+REQUIRED_VARS=("TELEGRAM_TOKEN")
 for var in "${REQUIRED_VARS[@]}"; do
   if [ -z "${!var}" ]; then
     log_error "Required environment variable $var is not set"

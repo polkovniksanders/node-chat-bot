@@ -11,17 +11,10 @@ if (!process.env.TELEGRAM_TOKEN) {
   process.exit(1);
 }
 
-if (!process.env.EVENTS_CHANNEL_ID) {
-  logger.warn('EVENTS_CHANNEL_ID не задан — дайджест событий дня отключён');
-}
-
 setupHandlers(bot);
 setupDailyCycleCron();
+setupDailyEventsCron();
 setupSoraVideoCron();
-
-if (process.env.EVENTS_CHANNEL_ID) {
-  setupDailyEventsCron();
-}
 
 bot.catch((err) => logger.error('Unhandled bot error', { err: String(err) }));
 

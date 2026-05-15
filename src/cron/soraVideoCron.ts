@@ -2,30 +2,42 @@ import cron from 'node-cron';
 import { bot } from '@/botInstance.js';
 import { getNextFromQueue, markAsPosted } from '@/content/soraQueue.js';
 import { generateSoraPostText } from '@/content/soraPost.js';
-import { isEnabled } from '@/modules/moduleConfig.js';
-
-const CHANNEL_ID = process.env.CHANNEL_ID!;
-const TEST_CHANNEL = '@node_js_test';
+import { getCronChatIds } from '@/modules/moduleConfig.js';
+import { logger } from '@/utils/logger.js';
 
 async function postNextSoraVideo(): Promise<void> {
-  const item = await getNextFromQueue();
-  if (!item) {
-    console.log('📭 Sora queue is empty, skipping');
+  const chatIds = getCronChatIds('sora-videos');
+  if (chatIds.length === 0) {
+    logger.info('[sora-videos] No chats configured, skipping');
     return;
   }
 
-  console.log(`🎬 Posting Sora video: "${item.description}"`);
-  const text = await generateSoraPostText(item.description);
+  const item = await getNextFromQueue();
+  if (!item) {
+    logger.info('[sora-videos] Queue is empty, skipping');
+    return;
+  }
 
-  // Telegram caption limit is 1024 chars
+  logger.info(`[sora-videos] Posting: "${item.description}"`);
+  const text = await generateSoraPostText(item.description);
   const caption = text.length > 1024 ? text.slice(0, 1021) + '...' : text;
   const opts = { caption, parse_mode: 'HTML' as const };
 
-  await bot.api.sendVideo(CHANNEL_ID, item.fileId, opts);
-  await bot.api.sendVideo(TEST_CHANNEL, item.fileId, opts);
+  const results = await Promise.allSettled(
+    chatIds.map((chatId) => bot.api.sendVideo(chatId, item.fileId, opts)),
+  );
 
-  await markAsPosted(item.fileUniqueId);
-  console.log(`✅ Sora video posted: "${item.description}"`);
+  const anySuccess = results.some((r) => r.status === 'fulfilled');
+  for (const r of results) {
+    if (r.status === 'rejected') {
+      logger.error('[sora-videos] Send failed', { err: String(r.reason) });
+    }
+  }
+
+  if (anySuccess) {
+    await markAsPosted(item.fileUniqueId);
+    logger.info(`[sora-videos] Posted: "${item.description}"`);
+  }
 }
 
 export function setupSoraVideoCron(): void {
@@ -33,22 +45,15 @@ export function setupSoraVideoCron(): void {
   cron.schedule(
     '0 18 * * *',
     async () => {
-      if (!isEnabled(CHANNEL_ID, 'sora-videos')) return;
-      console.log('⏰ Sora video cron triggered');
+      logger.info('[sora-videos] Cron triggered');
       try {
         await postNextSoraVideo();
       } catch (err) {
-        console.error('❌ Sora video cron failed:', err);
-        await bot.api
-          .sendMessage(
-            TEST_CHANNEL,
-            `❌ Ошибка Sora-видео: ${err instanceof Error ? err.message : err}`,
-          )
-          .catch(() => {});
+        logger.error('[sora-videos] Cron failed', { err: String(err) });
       }
     },
     { timezone: 'Asia/Yekaterinburg' },
   );
 
-  console.log('⏰ Sora video cron запущен (18:00 по Челябинску)');
+  logger.info('⏰ Sora video cron запущен (18:00 по Челябинску)');
 }

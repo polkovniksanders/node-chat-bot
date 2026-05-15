@@ -2,56 +2,55 @@ import cron from 'node-cron';
 import { InputFile } from 'grammy';
 import { bot } from '@/botInstance.js';
 import { getNewsDigestEmoji } from '@/news/news.js';
-import { consumeCurrentDay } from '@/content/cycleState.js';
+import { getCronChatIds } from '@/modules/moduleConfig.js';
 import { getAnimalMoviePost } from '@/content/animalMovies.js';
 import { getYoutubeVideoPost } from '@/content/youtubeVideos.js';
 import { generatePetNamesPost } from '@/content/petNames.js';
 import { generateAnimalStoryPost } from '@/content/animalStory.js';
-import { TEST_CHANNEL, TIMEZONE } from '@/config/constants.js';
-import { isEnabled } from '@/modules/moduleConfig.js';
+import { TIMEZONE } from '@/config/constants.js';
+import { readCurrentDay, advanceDay } from '@/content/cycleState.js';
+import { logger } from '@/utils/logger.js';
 
-const CHANNEL_ID = process.env.CHANNEL_ID!;
-
-async function sendPost(text: string, image?: Buffer | null) {
+async function sendPost(chatId: string, text: string, image?: Buffer | null) {
   if (image) {
-    await bot.api.sendPhoto(CHANNEL_ID, new InputFile(image, 'post.jpg'), {
-      caption: text,
-      parse_mode: 'HTML',
-    });
-    await bot.api.sendPhoto(TEST_CHANNEL, new InputFile(image, 'post.jpg'), {
+    await bot.api.sendPhoto(chatId, new InputFile(image, 'post.jpg'), {
       caption: text,
       parse_mode: 'HTML',
     });
   } else {
-    await bot.api.sendMessage(CHANNEL_ID, text, { parse_mode: 'HTML' });
-    await bot.api.sendMessage(TEST_CHANNEL, text, { parse_mode: 'HTML' });
+    await bot.api.sendMessage(chatId, text, { parse_mode: 'HTML' });
   }
 }
 
-async function runDayOne() {
+async function runDayOne(chatId: string) {
   const digest = await getNewsDigestEmoji();
-  await sendPost(digest.text, digest.image);
+  await sendPost(chatId, digest.text, digest.image);
 }
 
-async function runDayTwo() {
-  const text = await getAnimalMoviePost();
-  await sendPost(text);
+async function runDayTwo(chatId: string) {
+  await sendPost(chatId, await getAnimalMoviePost());
 }
 
-async function runDayThree() {
-  const text = await getYoutubeVideoPost();
-  // URL in text → Telegram auto-shows YouTube preview
-  await sendPost(text);
+async function runDayThree(chatId: string) {
+  await sendPost(chatId, await getYoutubeVideoPost());
 }
 
-async function runDayFour() {
-  const text = await generatePetNamesPost();
-  await sendPost(text);
+async function runDayFour(chatId: string) {
+  await sendPost(chatId, await generatePetNamesPost());
 }
 
-async function runDayFive() {
-  const text = await generateAnimalStoryPost();
-  await sendPost(text);
+async function runDayFive(chatId: string) {
+  await sendPost(chatId, await generateAnimalStoryPost());
+}
+
+async function runDay(day: number, chatId: string): Promise<void> {
+  switch (day) {
+    case 1: await runDayOne(chatId); break;
+    case 2: await runDayTwo(chatId); break;
+    case 3: await runDayThree(chatId); break;
+    case 4: await runDayFour(chatId); break;
+    case 5: await runDayFive(chatId); break;
+  }
 }
 
 export function setupDailyCycleCron() {
@@ -59,39 +58,37 @@ export function setupDailyCycleCron() {
   cron.schedule(
     '0 11 * * *',
     async () => {
-      if (!isEnabled(CHANNEL_ID, 'daily-cycle')) return;
+      const chatIds = getCronChatIds('daily-cycle');
+      if (chatIds.length === 0) {
+        logger.info('[daily-cycle] No chats configured, skipping');
+        return;
+      }
 
-      const { day } = await consumeCurrentDay();
+      const day = await readCurrentDay();
+      logger.info(`[daily-cycle] День ${day}, чатов: ${chatIds.length}`);
 
-      console.log(`📅 Daily cycle — день ${day}`);
+      const results = await Promise.allSettled(
+        chatIds.map((chatId) => runDay(day, chatId)),
+      );
 
-      try {
-        switch (day) {
-          case 1:
-            await runDayOne();
-            break;
-          case 2:
-            await runDayTwo();
-            break;
-          case 3:
-            await runDayThree();
-            break;
-          case 4:
-            await runDayFour();
-            break;
-          case 5:
-            await runDayFive();
-            break;
+      const failed = results.filter((r) => r.status === 'rejected');
+      if (failed.length > 0) {
+        for (const r of failed) {
+          logger.error('[daily-cycle] Send failed', { err: String((r as PromiseRejectedResult).reason) });
         }
-        console.log(`✅ День ${day} успешно опубликован`);
-      } catch (err) {
-        const errorMsg = `❌ Ошибка публикации (день ${day}).\n\n${err instanceof Error ? err.message : err}`;
-        await bot.api.sendMessage(TEST_CHANNEL, errorMsg).catch(() => {});
-        console.error(`❌ Daily cycle day ${day} failed:`, err);
+      } else {
+        await advanceDay();
+        logger.info(`[daily-cycle] День ${day} опубликован, переход к следующему`);
+      }
+
+      if (failed.length > 0 && failed.length < results.length) {
+        // Partial success: some chats got it, advance anyway to avoid repeating
+        await advanceDay();
+        logger.warn(`[daily-cycle] Partial success: ${results.length - failed.length}/${results.length} чатов`);
       }
     },
     { timezone: TIMEZONE },
   );
 
-  console.log('⏰ Cron для 5-дневного цикла запущен (11:00 по Челябинску)');
+  logger.info('⏰ Cron для 5-дневного цикла запущен (11:00 по Челябинску)');
 }

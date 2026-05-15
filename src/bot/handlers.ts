@@ -11,7 +11,7 @@ import { setupVoiceHandler } from '@/bot/voiceHandler.js';
 import { setupSayHandler } from '@/bot/sayHandler.js';
 import { setupWhisperHandler } from '@/bot/whisperHandler.js';
 import { setupModuleAdminHandler } from '@/bot/moduleAdminHandler.js';
-import { isEnabled } from '@/modules/moduleConfig.js';
+import { isEnabled, getCronChatIds } from '@/modules/moduleConfig.js';
 import { findUserById, RegisteredUser } from '@/config/users.js';
 import { loadUserMemory } from '@/context/userMemory.js';
 import { buildUserContextBlock, buildReplyContextBlock } from '@/config/prompts.js';
@@ -43,9 +43,10 @@ export function setupHandlers(botInstance: typeof bot) {
 
   botInstance.command('events', async (ctx) => {
     if (!isEnabled(ctx.chat.id, 'events-manual')) return;
-    const channelId = process.env.EVENTS_CHANNEL_ID;
-    if (!channelId) {
-      await ctx.reply('❌ EVENTS_CHANNEL_ID не задан в .env');
+
+    const chatIds = getCronChatIds('daily-events');
+    if (chatIds.length === 0) {
+      await ctx.reply('❌ Нет чатов для дайджеста. Включи модуль daily-events командой /module_enable daily-events в нужном чате.');
       return;
     }
 
@@ -53,8 +54,11 @@ export function setupHandlers(botInstance: typeof bot) {
 
     try {
       const events = await getDailyEvents();
-      await bot.api.sendMessage(channelId, events.text, { parse_mode: 'HTML' });
-      await ctx.reply(`✅ Дайджест отправлен в ${channelId}`);
+      const results = await Promise.allSettled(
+        chatIds.map((chatId) => bot.api.sendMessage(chatId, events.text, { parse_mode: 'HTML' })),
+      );
+      const ok = results.filter((r) => r.status === 'fulfilled').length;
+      await ctx.reply(`✅ Дайджест отправлен в ${ok}/${chatIds.length} чатов`);
     } catch (err) {
       await ctx.reply(`❌ Ошибка: ${err instanceof Error ? err.message : err}`);
     }

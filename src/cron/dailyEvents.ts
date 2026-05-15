@@ -10,12 +10,13 @@ import {
 import { fetchTrackOfDay, buildTrackMessage } from '@/events/fetchers/trackOfDay.js';
 import { fetchMovieOfDay } from '@/events/fetchers/movieOfDay.js';
 import { bot } from '@/botInstance.js';
-import { TIMEZONE, TEST_CHANNEL } from '@/config/constants.js';
+import { TIMEZONE } from '@/config/constants.js';
 import { getRandomUser } from '@/config/users.js';
 import { loadUserMemory } from '@/context/userMemory.js';
 import { buildCoffeeGreetingPrompt, buildDailyDialoguePrompt, buildDailyDialogueWithFactPrompt } from '@/config/prompts.js';
 import { gptunnelChat } from '@/ai/gptunnel.js';
-import { isEnabled } from '@/modules/moduleConfig.js';
+import { getCronChatIds, isEnabled } from '@/modules/moduleConfig.js';
+import { logger } from '@/utils/logger.js';
 
 function generateSpreadDelays(count: number, maxMinutes: number, minGapMinutes: number): number[] {
   const delays: number[] = [];
@@ -31,14 +32,26 @@ function generateSpreadDelays(count: number, maxMinutes: number, minGapMinutes: 
   return delays.sort((a, b) => a - b);
 }
 
-export function setupDailyEventsCron() {
-  const channelId = process.env.EVENTS_CHANNEL_ID!;
+async function sendToChatIds(
+  chatIds: string[],
+  send: (chatId: string) => Promise<unknown>,
+): Promise<void> {
+  const results = await Promise.allSettled(chatIds.map(send));
+  for (const r of results) {
+    if (r.status === 'rejected') {
+      logger.error('[daily-events] Send failed', { err: String(r.reason) });
+    }
+  }
+}
 
+export function setupDailyEventsCron() {
   // 8:55 AM — coffee photo + date + holidays + personal greeting
   cron.schedule(
     '55 8 * * *',
     async () => {
-      if (!isEnabled(channelId, 'daily-events')) return;
+      const chatIds = getCronChatIds('daily-events');
+      if (chatIds.length === 0) return;
+
       try {
         const now = new Date(
           new Date().toLocaleString('en-US', { timeZone: 'Asia/Yekaterinburg' }),
@@ -51,7 +64,6 @@ export function setupDailyEventsCron() {
 
         const greeting = getRandomMorningGreeting();
 
-        // Персональное обращение к случайному пользователю
         let personalGreeting = '';
         const targetUser = getRandomUser();
         if (targetUser) {
@@ -66,20 +78,21 @@ export function setupDailyEventsCron() {
               personalGreeting = `\n\n${mention}, ${personal.trim()}`;
             }
           } catch (err) {
-            console.error('Personal greeting error:', err);
+            logger.error('[daily-events] Personal greeting error', { err: String(err) });
           }
         }
 
         const caption = `${headerText}\n\n${greeting}${personalGreeting}`.slice(0, 1020);
 
-        if (coffeeUrl) {
-          await bot.api.sendPhoto(channelId, coffeeUrl, { caption, parse_mode: 'HTML' });
-        } else {
-          await bot.api.sendMessage(channelId, `☕ ${caption}`, { parse_mode: 'HTML' });
-        }
+        await sendToChatIds(chatIds, async (chatId) => {
+          if (coffeeUrl) {
+            await bot.api.sendPhoto(chatId, coffeeUrl, { caption, parse_mode: 'HTML' });
+          } else {
+            await bot.api.sendMessage(chatId, `☕ ${caption}`, { parse_mode: 'HTML' });
+          }
+        });
       } catch (err) {
-        const msg = `❌ Ошибка кофе-поста (8:55).\n\n${err instanceof Error ? err.message : err}`;
-        await bot.api.sendMessage(TEST_CHANNEL, msg).catch(() => {});
+        logger.error('[daily-events] Coffee post failed (8:55)', { err: String(err) });
       }
     },
     { timezone: TIMEZONE },
@@ -89,16 +102,19 @@ export function setupDailyEventsCron() {
   cron.schedule(
     '0 9 * * *',
     async () => {
-      if (!isEnabled(channelId, 'daily-events')) return;
+      const chatIds = getCronChatIds('daily-events');
+      if (chatIds.length === 0) return;
+
       try {
         const now = new Date(
           new Date().toLocaleString('en-US', { timeZone: 'Asia/Yekaterinburg' }),
         );
         const text = await fetchDailyFactsForDate(now);
-        await bot.api.sendMessage(channelId, text, { parse_mode: 'HTML' });
+        await sendToChatIds(chatIds, (chatId) =>
+          bot.api.sendMessage(chatId, text, { parse_mode: 'HTML' }),
+        );
       } catch (err) {
-        const msg = `❌ Ошибка дайджеста (9:00).\n\n${err instanceof Error ? err.message : err}`;
-        await bot.api.sendMessage(TEST_CHANNEL, msg).catch(() => {});
+        logger.error('[daily-events] Facts digest failed (9:00)', { err: String(err) });
       }
     },
     { timezone: TIMEZONE },
@@ -108,13 +124,16 @@ export function setupDailyEventsCron() {
   cron.schedule(
     '5 9 * * *',
     async () => {
-      if (!isEnabled(channelId, 'daily-events')) return;
+      const chatIds = getCronChatIds('daily-events');
+      if (chatIds.length === 0) return;
+
       try {
         const text = await fetchFinancePost();
-        await bot.api.sendMessage(channelId, text, { parse_mode: 'HTML' });
+        await sendToChatIds(chatIds, (chatId) =>
+          bot.api.sendMessage(chatId, text, { parse_mode: 'HTML' }),
+        );
       } catch (err) {
-        const msg = `❌ Ошибка финансового поста (9:05).\n\n${err instanceof Error ? err.message : err}`;
-        await bot.api.sendMessage(TEST_CHANNEL, msg).catch(() => {});
+        logger.error('[daily-events] Finance post failed (9:05)', { err: String(err) });
       }
     },
     { timezone: TIMEZONE },
@@ -124,7 +143,9 @@ export function setupDailyEventsCron() {
   cron.schedule(
     '10 9 * * *',
     async () => {
-      if (!isEnabled(channelId, 'daily-events')) return;
+      const chatIds = getCronChatIds('daily-events');
+      if (chatIds.length === 0) return;
+
       try {
         const [trackResult, movieResult] = await Promise.allSettled([
           fetchTrackOfDay().then(buildTrackMessage),
@@ -138,10 +159,11 @@ export function setupDailyEventsCron() {
         if (parts.length === 0) return;
 
         const message = parts.join('\n\n<b>──────────────</b>\n\n');
-        await bot.api.sendMessage(channelId, message, { parse_mode: 'HTML' });
+        await sendToChatIds(chatIds, (chatId) =>
+          bot.api.sendMessage(chatId, message, { parse_mode: 'HTML' }),
+        );
       } catch (err) {
-        const msg = `❌ Ошибка трека/фильма (9:10).\n\n${err instanceof Error ? err.message : err}`;
-        await bot.api.sendMessage(TEST_CHANNEL, msg).catch(() => {});
+        logger.error('[daily-events] Track/movie post failed (9:10)', { err: String(err) });
       }
     },
     { timezone: TIMEZONE },
@@ -151,18 +173,17 @@ export function setupDailyEventsCron() {
   cron.schedule(
     '0 10 * * *',
     () => {
-      if (!isEnabled(channelId, 'daily-events')) return;
+      // Read chatIds at schedule time — re-read inside each timeout for live config
       const count = Math.floor(Math.random() * 3) + 2; // 2, 3 или 4
-      const maxMinutes = 8 * 60; // окно до 18:00
-      const minGapMinutes = 45;
-
-      const delays = generateSpreadDelays(count, maxMinutes, minGapMinutes);
+      const delays = generateSpreadDelays(count, 8 * 60, 45);
 
       delays.forEach((delayMs) => {
         setTimeout(async () => {
+          // Live-read chatIds so late-toggled chats are respected
+          const chatIds = getCronChatIds('daily-events');
+          if (chatIds.length === 0) return;
+
           try {
-            if (!isEnabled(channelId, 'daily-events')) return;
-            if (!isEnabled(channelId, 'ai-chat')) return;
             const user = getRandomUser();
             if (!user) return;
 
@@ -176,14 +197,13 @@ export function setupDailyEventsCron() {
 
             const msg = await gptunnelChat([{ role: 'user', content: prompt }]);
             const mention = user.username ? `@${user.username}` : user.firstName;
-            await bot.api.sendMessage(channelId, `${mention} ${msg.trim()}`);
+
+            await sendToChatIds(chatIds, (chatId) => {
+              if (!isEnabled(chatId, 'ai-chat')) return Promise.resolve();
+              return bot.api.sendMessage(chatId, `${mention} ${msg.trim()}`);
+            });
           } catch (err) {
-            await bot.api
-              .sendMessage(
-                TEST_CHANNEL,
-                `❌ Ошибка случайного диалога.\n\n${err instanceof Error ? err.message : err}`,
-              )
-              .catch(() => {});
+            logger.error('[daily-events] Random dialogue failed', { err: String(err) });
           }
         }, delayMs);
       });
@@ -191,7 +211,7 @@ export function setupDailyEventsCron() {
     { timezone: TIMEZONE },
   );
 
-  console.log(
+  logger.info(
     '⏰ Cron scheduled: 8:55 coffee+date | 9:00 facts | 9:05 finance | 9:10 track+movie | 10:00 dialogues (Chelyabinsk)',
   );
 }

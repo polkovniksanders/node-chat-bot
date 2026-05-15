@@ -1,11 +1,25 @@
-import type { ModuleName } from '@/modules/moduleConfig.js';
+export const MODULE_NAMES = [
+  'daily-cycle',
+  'daily-events',
+  'sora-videos',
+  'ai-chat',
+  'voice-transcription',
+  'image-generation',
+  'weather',
+  'secret-whisper',
+  'events-manual',
+  'emoji-reactions',
+  'user-memory',
+  'sora-admin',
+  'say-admin',
+] as const;
+
+export type ModuleName = typeof MODULE_NAMES[number];
 
 export interface ModuleDefinition {
   name: ModuleName;
   description: string;
   class: 'cron' | 'input' | 'admin';
-  /** For cron modules: the env var key that holds the output channel ID */
-  defaultChatIdEnv?: string;
 }
 
 export const MODULES: ModuleDefinition[] = [
@@ -14,19 +28,16 @@ export const MODULES: ModuleDefinition[] = [
     name: 'daily-cycle',
     description: '5-дневный цикл постов (котовости, фильмы, видео, клички, рассказы)',
     class: 'cron',
-    defaultChatIdEnv: 'CHANNEL_ID',
   },
   {
     name: 'daily-events',
     description: 'Утренний дайджест (кофе-фото, факты, финансы, культура)',
     class: 'cron',
-    defaultChatIdEnv: 'EVENTS_CHANNEL_ID',
   },
   {
     name: 'sora-videos',
     description: 'Постинг Sora-видео из очереди',
     class: 'cron',
-    defaultChatIdEnv: 'CHANNEL_ID',
   },
   // Input
   {
@@ -84,9 +95,4 @@ export const MODULES: ModuleDefinition[] = [
 
 export function findModule(name: string): ModuleDefinition | undefined {
   return MODULES.find((m) => m.name === name);
-}
-
-export function getDefaultChatId(def: ModuleDefinition): string | undefined {
-  if (!def.defaultChatIdEnv) return undefined;
-  return process.env[def.defaultChatIdEnv];
 }
