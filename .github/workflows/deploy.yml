@@ -1,7 +1,8 @@
-name: Deploy to Beget VPS
+name: Deploy chat_bot
 
 # Автодеплой чат-бота при пуше в main и по ручному запуску.
-# Workflow по SSH заходит на сервер и запускает существующий deploy.sh
+# Workflow по SSH заходит на сервер (play2go.cloud, 144.31.158.54) и запускает
+# существующий deploy.sh
 # (git pull → npm ci → typecheck → lint → build → PM2 reload → health check).
 
 on:
@@ -17,7 +18,7 @@ jobs:
       - name: Run deploy.sh on server
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.SSH_HOST || '155.212.131.33' }}
+          host: ${{ secrets.SSH_HOST || '144.31.158.54' }}
           username: ${{ secrets.SSH_USERNAME || 'root' }}
           key: ${{ secrets.SSH_KEY }}
           port: 22
