@@ -2,6 +2,7 @@ import { InlineKeyboard } from 'grammy';
 import { bot } from '@/botInstance.js';
 import { isEnabled, setEnabled, getStatus } from '@/modules/moduleConfig.js';
 import { MODULES, findModule, type ModuleName } from '@/modules/moduleRegistry.js';
+import { registerChat, getKnownChats, formatChatLabel } from '@/modules/knownChats.js';
 import { logger } from '@/utils/logger.js';
 
 // Support both ADMIN_USER_IDS (plural, comma-separated) and legacy ADMIN_USER_ID (singular)
@@ -32,26 +33,19 @@ interface ChannelOption {
   label: string;
 }
 
-/** Каналы из .env (в которых бот администратор) + текущий чат, без дублей */
-function buildChannelList(currentChatId: number): ChannelOption[] {
-  const seen = new Set<string>();
-  const channels: ChannelOption[] = [];
-  const add = (chatId: string | undefined, label: string) => {
-    if (!chatId || seen.has(chatId)) return;
-    seen.add(chatId);
-    channels.push({ chatId, label });
-  };
-  add(String(currentChatId), 'Текущий чат');
-  add(process.env.CHANNEL_ID, 'Основной канал');
-  add(process.env.EVENTS_CHANNEL_ID, 'Канал событий');
-  add(process.env.CHANNEL_CHAT_ID, 'Привязанный чат');
-  return channels;
+/** Динамический список чатов из реестра известных чатов */
+function buildChannelList(): ChannelOption[] {
+  const chats = getKnownChats();
+  return chats.map((chat) => ({
+    chatId: chat.id,
+    label: formatChatLabel(chat),
+  }));
 }
 
 function buildChannelKeyboard(channels: ChannelOption[]): InlineKeyboard {
   const kb = new InlineKeyboard();
   for (const ch of channels) {
-    kb.row().text(`${ch.label} · ${ch.chatId}`, `mod:list:${ch.chatId}`);
+    kb.row().text(`${ch.label}`, `mod:list:${ch.chatId}`);
   }
   return kb;
 }
@@ -64,30 +58,70 @@ function buildModuleKeyboard(chatId: string): InlineKeyboard {
     const icon = s.enabled ? '✅' : '⛔';
     kb.row().text(`${icon} ${def.name}`, `mod:toggle:${chatId}:${def.name}`);
   }
-  kb.row().text('⬅️ Выбрать другой канал', 'mod:channels');
+  kb.row().text('⬅️ Выбрать другой чат', 'mod:channels');
   return kb;
 }
 
 function moduleListMessage(chatId: string): string {
-  return `📋 <b>Управление модулями</b>\nКанал: <code>${chatId}</code>\n\nНажми на модуль, чтобы включить/выключить:`;
+  const chat = getKnownChats().find((c) => c.id === chatId);
+  const label = chat ? formatChatLabel(chat) : chatId;
+  return `📋 <b>Управление модулями</b>\nЧат: <code>${label}</code>\n\nНажми на модуль, чтобы включить/выключить:`;
 }
 
 export function setupModuleAdminHandler(): void {
-  // /modules — показать выбор канала
+  // Регистрируем чаты при любых входящих апдейтах
+  bot.on('msg', async (ctx) => {
+    if (ctx.chat) {
+      registerChat({
+        id: ctx.chat.id,
+        type: ctx.chat.type,
+        title: ctx.chat.title,
+        username: ctx.chat.username,
+      });
+    }
+  });
+
+  bot.on('channel_post', async (ctx) => {
+    if (ctx.channelPost?.chat) {
+      registerChat({
+        id: ctx.channelPost.chat.id,
+        type: ctx.channelPost.chat.type,
+        title: ctx.channelPost.chat.title,
+        username: ctx.channelPost.chat.username,
+      });
+    }
+  });
+
+  // /modules — показать выбор чата
   bot.command('modules', async (ctx) => {
     const userId = ctx.from?.id;
     if (!userId || !isAdmin(userId)) return; // silent ignore for non-admins
 
-    const channels = buildChannelList(ctx.chat.id);
+    // Регистрируем текущий чат
+    if (ctx.chat) {
+      registerChat({
+        id: ctx.chat.id,
+        type: ctx.chat.type,
+        title: ctx.chat.title,
+        username: ctx.chat.username,
+      });
+    }
+
+    const channels = buildChannelList();
     logger.info('modules command', { userId, channels: channels.map((c) => c.chatId) });
 
-    await ctx.reply('📡 <b>Выбери канал для управления модулями:</b>', {
+    if (channels.length === 0) {
+      await ctx.reply('📭 Нет известных чатов. Добавьте бота в группу/канал или напишите ему в личку, затем попробуйте снова.');
+      return;
+    }
+
+    await ctx.reply('📡 <b>Выбери чат для управления модулями:</b>', {
       parse_mode: 'HTML',
       reply_markup: buildChannelKeyboard(channels),
     });
   });
 
-  // Выбор канала → список модулей с toggle-кнопками
+  // Выбор чата → список модулей с toggle-кнопками
   bot.callbackQuery(/^mod:list:(.+)$/, async (ctx) => {
     const userId = ctx.from?.id;
     if (!userId || !isAdmin(userId)) {
@@ -130,16 +164,15 @@ export function setupModuleAdminHandler(): void {
     });
   });
 
-  // Назад к выбору канала
+  // Назад к выбору чата
   bot.callbackQuery('mod:channels', async (ctx) => {
     const userId = ctx.from?.id;
     if (!userId || !isAdmin(userId)) {
       await ctx.answerCallbackQuery('⛔ Доступ только у администратора');
       return;
     }
-    const currentChatId = ctx.callbackQuery.message?.chat.id ?? 0;
-    const channels = buildChannelList(currentChatId);
-    await ctx.editMessageText('📡 <b>Выбери канал для управления модулями:</b>', {
+    const channels = buildChannelList();
+    await ctx.editMessageText('📡 <b>Выбери чат для управления модулями:</b>', {
       parse_mode: 'HTML',
       reply_markup: buildChannelKeyboard(channels),
     });

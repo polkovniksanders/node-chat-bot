@@ -15,7 +15,7 @@ import { getRandomUser } from '@/config/users.js';
 import { loadUserMemory } from '@/context/userMemory.js';
 import { buildCoffeeGreetingPrompt, buildDailyDialoguePrompt, buildDailyDialogueWithFactPrompt } from '@/config/prompts.js';
 import { polzaChat } from '@/ai/polza.js';
-import { isEnabled } from '@/modules/moduleConfig.js';
+import { getEnabledChatsForModule } from '@/modules/moduleConfig.js';
 import { logger } from '@/utils/logger.js';
 
 function generateSpreadDelays(count: number, maxMinutes: number, minGapMinutes: number): number[] {
@@ -32,14 +32,31 @@ function generateSpreadDelays(count: number, maxMinutes: number, minGapMinutes: 
   return delays.sort((a, b) => a - b);
 }
 
-export function setupDailyEventsCron() {
-  const channelId = process.env.EVENTS_CHANNEL_ID!;
+async function sendToChats(chatIds: string[], text: string, photoUrl?: string | null) {
+  for (const chatId of chatIds) {
+    try {
+      if (photoUrl) {
+        await bot.api.sendPhoto(chatId, photoUrl, { caption: text, parse_mode: 'HTML' });
+      } else {
+        await bot.api.sendMessage(chatId, text, { parse_mode: 'HTML' });
+      }
+    } catch (err) {
+      logger.error('Daily events send failed', {
+        chatId,
+        err: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+}
 
+export function setupDailyEventsCron() {
   // 8:55 AM — coffee photo + date + holidays + personal greeting
   cron.schedule(
     '55 8 * * *',
     async () => {
-      if (!isEnabled(channelId, 'daily-events')) return;
+      const enabledChats = getEnabledChatsForModule('daily-events');
+      if (enabledChats.length === 0) return;
+
       try {
         const now = new Date(
           new Date().toLocaleString('en-US', { timeZone: 'Asia/Yekaterinburg' }),
@@ -73,11 +90,7 @@ export function setupDailyEventsCron() {
 
         const caption = `${headerText}\n\n${greeting}${personalGreeting}`.slice(0, 1020);
 
-        if (coffeeUrl) {
-          await bot.api.sendPhoto(channelId, coffeeUrl, { caption, parse_mode: 'HTML' });
-        } else {
-          await bot.api.sendMessage(channelId, `☕ ${caption}`, { parse_mode: 'HTML' });
-        }
+        await sendToChats(enabledChats, caption, coffeeUrl);
       } catch (err) {
         logger.error('Кофе-пост (8:55) ошибся', { err: err instanceof Error ? err.message : String(err) });
       }
@@ -89,13 +102,15 @@ export function setupDailyEventsCron() {
   cron.schedule(
     '0 9 * * *',
     async () => {
-      if (!isEnabled(channelId, 'daily-events')) return;
+      const enabledChats = getEnabledChatsForModule('daily-events');
+      if (enabledChats.length === 0) return;
+
       try {
         const now = new Date(
           new Date().toLocaleString('en-US', { timeZone: 'Asia/Yekaterinburg' }),
         );
         const text = await fetchDailyFactsForDate(now);
-        await bot.api.sendMessage(channelId, text, { parse_mode: 'HTML' });
+        await sendToChats(enabledChats, text);
       } catch (err) {
         logger.error('Дайджест (9:00) ошибся', { err: err instanceof Error ? err.message : String(err) });
       }
@@ -107,10 +122,12 @@ export function setupDailyEventsCron() {
   cron.schedule(
     '5 9 * * *',
     async () => {
-      if (!isEnabled(channelId, 'daily-events')) return;
+      const enabledChats = getEnabledChatsForModule('daily-events');
+      if (enabledChats.length === 0) return;
+
       try {
         const text = await fetchFinancePost();
-        await bot.api.sendMessage(channelId, text, { parse_mode: 'HTML' });
+        await sendToChats(enabledChats, text);
       } catch (err) {
         logger.error('Финансовый пост (9:05) ошибся', { err: err instanceof Error ? err.message : String(err) });
       }
@@ -122,7 +139,9 @@ export function setupDailyEventsCron() {
   cron.schedule(
     '10 9 * * *',
     async () => {
-      if (!isEnabled(channelId, 'daily-events')) return;
+      const enabledChats = getEnabledChatsForModule('daily-events');
+      if (enabledChats.length === 0) return;
+
       try {
         const [trackResult, movieResult] = await Promise.allSettled([
           fetchTrackOfDay().then(buildTrackMessage),
@@ -136,7 +155,7 @@ export function setupDailyEventsCron() {
         if (parts.length === 0) return;
 
         const message = parts.join('\n\n<b>──────────────</b>\n\n');
-        await bot.api.sendMessage(channelId, message, { parse_mode: 'HTML' });
+        await sendToChats(enabledChats, message);
       } catch (err) {
         logger.error('Трек/фильм (9:10) ошибся', { err: err instanceof Error ? err.message : String(err) });
       }
@@ -148,7 +167,9 @@ export function setupDailyEventsCron() {
   cron.schedule(
     '0 10 * * *',
     () => {
-      if (!isEnabled(channelId, 'daily-events')) return;
+      const enabledChats = getEnabledChatsForModule('daily-events');
+      if (enabledChats.length === 0) return;
+
       const count = Math.floor(Math.random() * 3) + 2; // 2, 3 или 4
       const maxMinutes = 8 * 60; // окно до 18:00
       const minGapMinutes = 45;
@@ -157,9 +178,15 @@ export function setupDailyEventsCron() {
 
       delays.forEach((delayMs) => {
         setTimeout(async () => {
+          const currentEnabledChats = getEnabledChatsForModule('daily-events');
+          if (currentEnabledChats.length === 0) return;
+
+          // Также проверяем ai-chat для этих чатов
+          const { isEnabled } = await import('@/modules/moduleConfig.js');
+          const chatsWithAi = currentEnabledChats.filter((c) => isEnabled(c, 'ai-chat'));
+          if (chatsWithAi.length === 0) return;
+
           try {
-            if (!isEnabled(channelId, 'daily-events')) return;
-            if (!isEnabled(channelId, 'ai-chat')) return;
             const user = getRandomUser();
             if (!user) return;
 
@@ -173,7 +200,18 @@ export function setupDailyEventsCron() {
 
             const msg = await polzaChat([{ role: 'user', content: prompt }]);
             const mention = user.username ? `@${user.username}` : user.firstName;
-            await bot.api.sendMessage(channelId, `${mention} ${msg.trim()}`);
+
+            // Отправляем в все чаты с daily-events + ai-chat
+            for (const chatId of chatsWithAi) {
+              try {
+                await bot.api.sendMessage(chatId, `${mention} ${msg.trim()}`);
+              } catch (err) {
+                logger.error('Случайный диалог send failed', {
+                  chatId,
+                  err: err instanceof Error ? err.message : String(err),
+                });
+              }
+            }
           } catch (err) {
             logger.error('Случайный диалог (10:00) ошибся', { err: err instanceof Error ? err.message : String(err) });
           }
@@ -184,6 +222,6 @@ export function setupDailyEventsCron() {
   );
 
   console.log(
-    '⏰ Cron scheduled: 8:55 coffee+date | 9:00 facts | 9:05 finance | 9:10 track+movie | 10:00 dialogues (Chelyabinsk)',
+    '⏰ Cron scheduled: 8:55 coffee+date | 9:00 facts | 9:05 finance | 9:10 track+movie | 10:00 dialogues (Chelyabinsk) — dynamic chats via module config'
   );
 }

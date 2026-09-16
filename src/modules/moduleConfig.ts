@@ -79,3 +79,20 @@ export function getStatus(chatId: string | number): Record<ModuleName, { enabled
   }
   return result;
 }
+
+/**
+ * Возвращает список chatId, где модуль явно включён (enabled === true).
+ * Не возвращает чаты, где модуль просто не отключён (default=true) —
+ * для крон-модулей это важно: они должны работать только где админ явно включил.
+ */
+export function getEnabledChatsForModule(module: ModuleName): string[] {
+  const result: string[] = [];
+  for (const [chatId, chatConfig] of Object.entries(config)) {
+    const val = chatConfig[module];
+    // val === true — явно включён; undefined — дефолт (не считается "включённым админом")
+    if (val === true) {
+      result.push(chatId);
+    }
+  }
+  return result;
+}

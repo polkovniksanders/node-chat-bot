@@ -44,9 +44,8 @@ export function setupHandlers(botInstance: typeof bot) {
 
     try {
       const events = await getDailyEvents();
-      const channelId = process.env.EVENTS_CHANNEL_ID ?? ctx.chat.id;
-      await bot.api.sendMessage(channelId, events.text, { parse_mode: 'HTML' });
-      await ctx.reply(`✅ Дайджест отправлен в канал событий`);
+      // Отправляем в чат, откуда вызвана команда
+      await ctx.reply(events.text, { parse_mode: 'HTML' });
     } catch (err) {
       await ctx.reply(`❌ Ошибка: ${err instanceof Error ? err.message : err}`);
     }
@@ -140,29 +139,20 @@ export function setupHandlers(botInstance: typeof bot) {
       return;
     }
 
-    // Группы и каналы: reply на бота, reply на пост канала, или @упоминание
+    // Группы и каналы: reply на бота или @упоминание
     const isChannelPost = ctx.channelPost !== undefined;
     const userId = ctx.from?.id;
 
     if (!isChannelPost && !userId) return;
 
     const replyFrom = ctx.msg.reply_to_message?.from;
-    const replySenderChat = (ctx.msg.reply_to_message as any)?.sender_chat;
-    const channelUsername = process.env.CHANNEL_ID?.replace('@', '');
 
     // Триггер 1: reply на сообщение бота
     const isReplyToBot =
       replyFrom?.id === BOT_ID ||
       (BOT_USERNAME && replyFrom?.username === BOT_USERNAME);
 
-    // Триггер 2: reply на пост из связанного канала
-    const channelNumericId = process.env.CHANNEL_CHAT_ID ? Number(process.env.CHANNEL_CHAT_ID) : null;
-    const isReplyToChannel =
-      (channelUsername && replySenderChat?.username === channelUsername) ||
-      (BOT_USERNAME && replySenderChat?.username === BOT_USERNAME) ||
-      (channelNumericId && replySenderChat?.id === channelNumericId);
-
-    // Триггер 3: @упоминание бота через entities (точный метод)
+    // Триггер 2: @упоминание бота через entities (точный метод)
     const isMentioned =
       BOT_USERNAME &&
       (ctx.msg.entities?.some(
@@ -176,7 +166,6 @@ export function setupHandlers(botInstance: typeof bot) {
       chat: ctx.chat.id,
       isChannelPost,
       isReplyToBot,
-      isReplyToChannel,
       isMentioned,
     });
 
@@ -187,15 +176,15 @@ export function setupHandlers(botInstance: typeof bot) {
 
     // Посты канала — отвечаем только на @упоминание
     if (isChannelPost && !isMentioned) return;
-    // Группы — один из трёх триггеров
-    if (!isChannelPost && !isReplyToBot && !isReplyToChannel && !isMentioned) return;
+    // Группы — reply на бота или @упоминание
+    if (!isChannelPost && !isReplyToBot && !isMentioned) return;
 
     const chatId = ctx.chat.id;
 
     if (!isEnabled(chatId, 'ai-chat')) return;
 
     logger.info('responding to trigger', {
-      trigger: isReplyToBot ? 'reply-to-bot' : isReplyToChannel ? 'reply-to-channel' : 'mention',
+      trigger: isReplyToBot ? 'reply-to-bot' : 'mention',
       chatId,
       from: ctx.from?.username,
       isChannelPost,

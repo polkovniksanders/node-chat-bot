@@ -8,54 +8,47 @@ import { getYoutubeVideoPost } from '@/content/youtubeVideos.js';
 import { generatePetNamesPost } from '@/content/petNames.js';
 import { generateAnimalStoryPost } from '@/content/animalStory.js';
 import { TIMEZONE } from '@/config/constants.js';
-import { isEnabled } from '@/modules/moduleConfig.js';
+import { getEnabledChatsForModule } from '@/modules/moduleConfig.js';
 import { type ModuleName } from '@/modules/moduleRegistry.js';
 import { logger } from '@/utils/logger.js';
 
-const CHANNEL_ID = process.env.CHANNEL_ID!;
-
-async function sendPost(text: string, image?: Buffer | null) {
+async function sendPost(chatId: string, text: string, image?: Buffer | null) {
   if (image) {
-    await bot.api.sendPhoto(CHANNEL_ID, new InputFile(image, 'post.jpg'), {
+    await bot.api.sendPhoto(chatId, new InputFile(image, 'post.jpg'), {
       caption: text,
       parse_mode: 'HTML',
     });
   } else {
-    await bot.api.sendMessage(CHANNEL_ID, text, { parse_mode: 'HTML' });
+    await bot.api.sendMessage(chatId, text, { parse_mode: 'HTML' });
   }
 }
 
-async function runNewsDigest() {
+async function runNewsDigest(chatId: string) {
   const digest = await getNewsDigestEmoji();
-  await sendPost(digest.text, digest.image);
+  await sendPost(chatId, digest.text, digest.image);
 }
 
-async function runAnimalMovie() {
+async function runAnimalMovie(chatId: string) {
   const text = await getAnimalMoviePost();
-  await sendPost(text);
+  await sendPost(chatId, text);
 }
 
-async function runYoutubeVideo() {
+async function runYoutubeVideo(chatId: string) {
   const text = await getYoutubeVideoPost();
-  // URL in text → Telegram auto-shows YouTube preview
-  await sendPost(text);
+  await sendPost(chatId, text);
 }
 
-async function runPetNames() {
+async function runPetNames(chatId: string) {
   const text = await generatePetNamesPost();
-  await sendPost(text);
+  await sendPost(chatId, text);
 }
 
-async function runAnimalStory() {
+async function runAnimalStory(chatId: string) {
   const text = await generateAnimalStoryPost();
-  await sendPost(text);
+  await sendPost(chatId, text);
 }
 
-/**
- * День цикла → модуль из реестра. Все посты идут в CHANNEL_ID,
- * расписание одно (один cron), а админ может выключить любой день отдельно.
- */
-const DAY_POSTS: ReadonlyArray<{ day: number; module: ModuleName; run: () => Promise<void> }> = [
+const DAY_POSTS: ReadonlyArray<{ day: number; module: ModuleName; run: (chatId: string) => Promise<void> }> = [
   { day: 1, module: 'daily-news', run: runNewsDigest },
   { day: 2, module: 'daily-animal-movie', run: runAnimalMovie },
   { day: 3, module: 'daily-youtube-video', run: runYoutubeVideo },
@@ -76,23 +69,27 @@ export function setupDailyCycleCron() {
         return;
       }
 
-      if (!isEnabled(CHANNEL_ID, post.module)) {
-        logger.info(`Daily cycle: день ${day} (${post.module}) выключен админом — пропускаю`);
+      const enabledChats = getEnabledChatsForModule(post.module);
+      if (enabledChats.length === 0) {
+        logger.info(`Daily cycle: день ${day} (${post.module}) — нет чатов с включённым модулем, пропускаю`);
         return;
       }
 
-      console.log(`📅 Daily cycle — день ${day} (${post.module})`);
+      console.log(`📅 Daily cycle — день ${day} (${post.module}) → ${enabledChats.length} чат(ов)`);
 
-      try {
-        await post.run();
-        console.log(`✅ День ${day} успешно опубликован (${post.module})`);
-      } catch (err) {
-        console.error(`❌ Daily cycle day ${day} failed:`, err);
-        logger.error('Daily cycle day failed', {
-          day,
-          module: post.module,
-          err: err instanceof Error ? err.message : String(err),
-        });
+      for (const chatId of enabledChats) {
+        try {
+          await post.run(chatId);
+          console.log(`✅ День ${day} опубликован в ${chatId} (${post.module})`);
+        } catch (err) {
+          console.error(`❌ Daily cycle day ${day} failed for ${chatId}:`, err);
+          logger.error('Daily cycle day failed', {
+            day,
+            module: post.module,
+            chatId,
+            err: err instanceof Error ? err.message : String(err),
+          });
+        }
       }
     },
     { timezone: TIMEZONE },

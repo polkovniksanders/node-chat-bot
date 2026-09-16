@@ -2,7 +2,7 @@ import { readFile, writeFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
 import { bot } from '@/botInstance.js';
-import { isEnabled } from '@/modules/moduleConfig.js';
+import { isEnabled, getEnabledChatsForModule } from '@/modules/moduleConfig.js';
 import { logger } from '@/utils/logger.js';
 
 interface WhisperEntry {
@@ -48,9 +48,10 @@ export function setupWhisperHandler(botInstance: typeof bot) {
       return;
     }
 
-    const channelId = process.env.EVENTS_CHANNEL_ID;
-    if (!channelId) {
-      await ctx.reply('❌ Канал для шёпотов не настроен.');
+    // Находим чаты, где включен модуль secret-whisper
+    const enabledChats = getEnabledChatsForModule('secret-whisper');
+    if (enabledChats.length === 0) {
+      await ctx.reply('❌ Нет чатов, где включён модуль «Шёпоты». Админ должен включить его через /modules.');
       return;
     }
 
@@ -67,13 +68,21 @@ export function setupWhisperHandler(botInstance: typeof bot) {
 
     const message = `🤫 Мне тут кое-кто сообщил, что ${text}\n\n<i>— Это мнение анонимного шептуна. Степка лично за это не отвечает и вообще спал.</i>`;
 
-    try {
-      await bot.api.sendMessage(channelId, message, { parse_mode: 'HTML' });
+    let publishedCount = 0;
+    for (const chatId of enabledChats) {
+      try {
+        await bot.api.sendMessage(chatId, message, { parse_mode: 'HTML' });
+        publishedCount++;
+      } catch (err) {
+        logger.error('[whisper] Send failed', { chatId, err: String(err) });
+      }
+    }
+
+    if (publishedCount > 0) {
       entry.published = true;
-      await ctx.reply('✅ Твой шёпот услышан и передан в канал 🐾');
-    } catch (err) {
-      logger.error('[whisper] Send failed', { err: String(err) });
-      await ctx.reply('❌ Не удалось передать шёпот. Попробуй позже.');
+      await ctx.reply(`✅ Твой шёпот услышан и передан в ${publishedCount} чат(ов) 🐾`);
+    } else {
+      await ctx.reply('❌ Не удалось передать шёпот ни в один чат. Попробуй позже.');
     }
 
     whispers.push(entry);

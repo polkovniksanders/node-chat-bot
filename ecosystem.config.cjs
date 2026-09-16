@@ -7,8 +7,6 @@ module.exports = {
         NODE_ENV: 'production',
         TELEGRAM_TOKEN: process.env.TELEGRAM_TOKEN,
         ADMIN_USER_ID: process.env.ADMIN_USER_ID,
-        CHANNEL_ID: process.env.CHANNEL_ID,
-        EVENTS_CHANNEL_ID: process.env.EVENTS_CHANNEL_ID,
         // Polza.ai — единственный LLM-провайдер
         POLZA_API_URL: process.env.POLZA_API_URL,
         POLZA_API_KEY: process.env.POLZA_API_KEY,
