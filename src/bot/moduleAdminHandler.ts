@@ -70,7 +70,7 @@ function moduleListMessage(chatId: string): string {
 
 export function setupModuleAdminHandler(): void {
   // Регистрируем чаты при любых входящих апдейтах
-  bot.on('msg', async (ctx) => {
+  bot.on('msg', async (ctx, next) => {
     if (ctx.chat) {
       registerChat({
         id: ctx.chat.id,
@@ -79,17 +79,7 @@ export function setupModuleAdminHandler(): void {
         username: ctx.chat.username,
       });
     }
-  });
-
-  bot.on('channel_post', async (ctx) => {
-    if (ctx.channelPost?.chat) {
-      registerChat({
-        id: ctx.channelPost.chat.id,
-        type: ctx.channelPost.chat.type,
-        title: ctx.channelPost.chat.title,
-        username: ctx.channelPost.chat.username,
-      });
-    }
+    await next();
   });
 
   // /modules — показать выбор чата
