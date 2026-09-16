@@ -1,0 +1,26 @@
+name: Deploy to Beget VPS
+
+# Автодеплой чат-бота при пуше в main и по ручному запуску.
+# Workflow по SSH заходит на сервер и запускает существующий deploy.sh
+# (git pull → npm ci → typecheck → lint → build → PM2 reload → health check).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy chat_bot
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run deploy.sh on server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST || '155.212.131.33' }}
+          username: ${{ secrets.SSH_USERNAME || 'root' }}
+          key: ${{ secrets.SSH_KEY }}
+          port: 22
+          script: |
+            cd ~/chat_bot
+            ./deploy.sh
