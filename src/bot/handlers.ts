@@ -39,18 +39,14 @@ export function setupHandlers(botInstance: typeof bot) {
 
   botInstance.command('events', async (ctx) => {
     if (!isEnabled(ctx.chat.id, 'events-manual')) return;
-    const channelId = process.env.EVENTS_CHANNEL_ID;
-    if (!channelId) {
-      await ctx.reply('❌ EVENTS_CHANNEL_ID не задан в .env');
-      return;
-    }
 
     await ctx.reply('⏳ Генерирую дайджест событий...');
 
     try {
       const events = await getDailyEvents();
+      const channelId = process.env.EVENTS_CHANNEL_ID ?? ctx.chat.id;
       await bot.api.sendMessage(channelId, events.text, { parse_mode: 'HTML' });
-      await ctx.reply(`✅ Дайджест отправлен в ${channelId}`);
+      await ctx.reply(`✅ Дайджест отправлен в канал событий`);
     } catch (err) {
       await ctx.reply(`❌ Ошибка: ${err instanceof Error ? err.message : err}`);
     }
