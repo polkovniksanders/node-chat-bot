@@ -1,14 +1,12 @@
-import type { ModuleName } from '@/modules/moduleConfig.js';
-
 export interface ModuleDefinition {
-  name: ModuleName;
+  name: string;
   description: string;
   class: 'cron' | 'input' | 'admin';
   /** For cron modules: the env var key that holds the output channel ID */
   defaultChatIdEnv?: string;
 }
 
-export const MODULES: ModuleDefinition[] = [
+export const MODULES = [
   // Cron
   {
     name: 'daily-cycle',
@@ -21,12 +19,6 @@ export const MODULES: ModuleDefinition[] = [
     description: 'Утренний дайджест (кофе-фото, факты, финансы, культура)',
     class: 'cron',
     defaultChatIdEnv: 'EVENTS_CHANNEL_ID',
-  },
-  {
-    name: 'sora-videos',
-    description: 'Постинг Sora-видео из очереди',
-    class: 'cron',
-    defaultChatIdEnv: 'CHANNEL_ID',
   },
   // Input
   {
@@ -69,18 +61,12 @@ export const MODULES: ModuleDefinition[] = [
     description: 'AI-экстракция и сохранение фактов о пользователях',
     class: 'input',
   },
-  // Admin
-  {
-    name: 'sora-admin',
-    description: 'Загрузка Sora-видео в очередь через DM',
-    class: 'admin',
-  },
-  {
-    name: 'say-admin',
-    description: 'Отправка сообщения пользователю командой /say',
-    class: 'admin',
-  },
-];
+] as const satisfies readonly ModuleDefinition[];
+
+/** Единственный источник имён модулей — выводится из MODULES */
+export type ModuleName = (typeof MODULES)[number]['name'];
+
+export const ALL_MODULE_NAMES: readonly ModuleName[] = MODULES.map((m) => m.name);
 
 export function findModule(name: string): ModuleDefinition | undefined {
   return MODULES.find((m) => m.name === name);

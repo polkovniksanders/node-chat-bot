@@ -13,7 +13,7 @@ Telegram-бот с несколькими независимыми модуля�
 - Хранит контекст последних 12 сообщений каждого пользователя в памяти
 - Запоминает факты о пользователях (`data/user-memories.json`) — имя, предпочтения и т.д.
 - Поддерживает голосовые сообщения (транскрибирует через OpenAI Whisper)
-- Поддерживает команду `/say` — Степка озвучивает текст голосом
+- Управление модулями через команду `/modules` (только для админа)
 
 ### 2. 5-дневный цикл публикаций (`/src/cron/dailyCycle.ts`)
 
@@ -35,21 +35,7 @@ Telegram-бот с несколькими независимыми модуля�
 
 Тоны: официальный репортаж, паника, светская хроника, псевдонаучный, жалоба в ЖЭК, стихи, советская газета, детектив, кулинарный обзор, спортивный репортаж.
 
-Генерация работает через цепочку провайдеров — если один недоступен, автоматически переходит к следующему:
-
-| Приоритет | Провайдер |
-|-----------|-----------|
-| 1 | GPTunnel (основной, дешёвый) |
-| 2 | Anthropic (Claude Haiku) |
-| 3 | HuggingFace (DeepSeek-R1) |
-| 4 | HuggingFace (Qwen 2.5 72B) |
-| 5 | HuggingFace (Llama 3.3 70B) |
-| 6 | HuggingFace (Mistral Small 24B) |
-| 7 | HuggingFace (Gemma) |
-| 8 | Groq (Llama 3.3 70B) |
-| 9 | OpenRouter (DeepSeek) |
-| 10 | OpenAI (GPT-4o-mini) |
-| 11 | Google Gemini |
+Текст генерируется через **Polza.ai** — единственный LLM-провайдер (OpenAI-совместимый API). Доступны две модели: обычная (`POLZA_MODEL`) и «умная» (`POLZA_SMART_MODEL`) для чата и сложных задач.
 
 ### 3. Дайджест событий (`/src/cron/dailyEvents.ts`)
 
@@ -69,7 +55,7 @@ Telegram-бот с несколькими независимыми модуля�
 
 ### 4. Генерация изображений (`/src/generate/`)
 
-Команда `/generate <описание>` — генерирует изображение через DALL-E. Лимит: 3 изображения в час на пользователя.
+Команда `/generate <описание>` — генерирует изображение через Polza.ai (канал картинок `/media/create`). Лимит: 1 изображение в час на пользователя.
 
 ---
 
@@ -80,17 +66,15 @@ src/
 ├── index.ts                    # Точка входа, запуск кронов и бота
 ├── botInstance.ts              # Инициализация Grammy-бота
 ├── ai/
-│   ├── generateReply.ts        # Генерация ответов в чате (GPTunnel)
-│   ├── generateContent.ts      # Обёртка для AI-контента с fallback
-│   ├── gptunnel.ts             # GPTunnel API клиент
-│   ├── openrouter.ts           # OpenRouter API клиент
+│   ├── polza.ts                # Polza.ai API клиент (OpenAI-совместимый)
+│   ├── generateReply.ts        # Генерация ответов в чате (Polza)
+│   ├── generateContent.ts      # Обёртка для AI-контента (Polza)
 │   └── transcribe.ts           # Транскрипция аудио (Whisper)
 ├── bot/
 │   ├── handlers.ts             # Обработчики команд и сообщений
+│   ├── moduleAdminHandler.ts   # /modules — inline-кнопки управления модулями
 │   ├── voiceHandler.ts         # Обработка голосовых сообщений
-│   ├── voiceUtils.ts           # Утилиты загрузки голоса
-│   ├── soraHandler.ts          # Обработчик /sora
-│   └── sayHandler.ts           # Обработчик /say (TTS)
+│   └── voiceUtils.ts           # Утилиты загрузки голоса
 ├── config/
 │   ├── prompts.ts              # Промпты (персонаж Стёпы и все тексты)
 │   ├── api.ts                  # URL API и таймауты
@@ -105,12 +89,9 @@ src/
 │   ├── animalStory.ts          # AI-генерация рассказа
 │   ├── petNames.ts             # AI-генерация кличек
 │   ├── youtubeVideos.ts        # Подборка YouTube-видео
-│   ├── soraPost.ts             # Sora видео-контент
-│   └── soraQueue.ts            # Очередь Sora
 ├── cron/
 │   ├── dailyCycle.ts           # 5-дневный цикл (11:00)
-│   ├── dailyEvents.ts          # Дайджест событий (9:00)
-│   └── soraVideoCron.ts        # Крон Sora-видео
+│   └── dailyEvents.ts          # Дайджест событий (9:00)
 ├── events/
 │   ├── events.ts               # Точка входа событий
 │   ├── fetchRealEvents.ts      # Оркестратор всех API
@@ -123,22 +104,14 @@ src/
 │       ├── trackOfDay.ts       # Трек дня
 │       └── weather.ts          # Погода и геолокация
 ├── generate/
-│   ├── generate-image.ts       # Генерация изображений DALL-E
+│   ├── generate-image.ts       # Генерация изображений через Polza.ai
 │   └── rate-limiter.ts         # Лимит запросов на пользователя
 ├── news/
 │   ├── news.ts                 # Оркестратор котовостей
-│   ├── fetch-news.ts           # Цепочка провайдеров
+│   ├── fetch-news.ts           # Генерация текста через Polza.ai
 │   ├── formatter.ts            # HTML-форматтер для Telegram
-│   ├── image-generator.ts      # Иллюстрация к новости
-│   ├── news-history.ts         # История выпусков
-│   └── providers/              # AI-провайдеры
-│       ├── anthropic.ts
-│       ├── openAI.ts
-│       ├── gemini.ts
-│       ├── groq.ts
-│       ├── gptunnel.ts
-│       ├── openRouter.ts
-│       └── huggingface.ts
+│   ├── image-generator.ts      # Иллюстрация к новости (Pollinations.ai)
+│   └── news-history.ts         # История выпусков
 ├── weather/
 │   ├── fetch-weather.ts        # OpenWeatherMap клиент
 │   └── formatter.ts            # Форматирование погоды
@@ -162,17 +135,13 @@ data/
 | `TELEGRAM_TOKEN` | Токен бота от @BotFather | Да |
 | `CHANNEL_ID` | ID канала для публикаций (напр. `@my_channel`) | Да |
 | `EVENTS_CHANNEL_ID` | ID канала/группы для дайджеста событий | Нет |
-| `GPTUNNEL_API_KEY` | Ключ GPTunnel (основной AI-провайдер) | Рекомендуется |
-| `ANTHROPIC_API_KEY` | Ключ Anthropic Claude | Нет |
-| `OPENAI_API_KEY` | Ключ OpenAI (DALL-E + GPT) | Нет |
-| `GEMINI_API_KEY` | Ключ Google Gemini | Нет |
-| `OPENROUTER_API_KEY` | Ключ OpenRouter | Нет |
-| `GROQ_API_KEY` | Ключ Groq | Нет |
-| `HF_TOKEN` | Токен HuggingFace | Нет |
-| `OPENWEATHERMAP_API_KEY` | Погода (OpenWeatherMap) | Нет |
+| `POLZA_API_KEY` | Ключ Polza.ai (единственный LLM-провайдер) | Да |
+| `POLZA_API_URL` | Base URL Polza.ai (по умолчанию `https://api.polza.ai/v1`) | Нет |
+| `POLZA_MODEL` | Обычная модель (по умолчанию `deepseek-v3-0324`) | Нет |
+| `POLZA_SMART_MODEL` | «Умная» модель для чата (по умолчанию `gpt-4.1-nano`) | Нет |
+| `ADMIN_USER_ID` | Telegram ID администратора (доступ к `/modules`) | Да |
+| `OPENWEATHERMAP_API_KEY` | Погода (OpenWeatherMap, иначе Open-Meteo) | Нет |
 | `GEONAMES_USERNAME` | Геолокация (GeoNames) | Нет |
-
-Хотя бы один AI-провайдер должен быть настроен.
 
 ---
 
@@ -218,8 +187,7 @@ pm2 save
 
 - **[grammy](https://grammy.dev/)** — Telegram Bot Framework
 - **[node-cron](https://github.com/node-cron/node-cron)** — планировщик задач
+- **[Polza.ai](https://polza.ai/dashboard/models)** — единственный LLM-провайдер (OpenAI-совместимый API)
 - **[TypeScript](https://www.typescriptlang.org/)** — язык разработки
-- **[openai](https://github.com/openai/openai-node)** — SDK для OpenAI / DALL-E / Whisper
-- **[@google/generative-ai](https://github.com/google-gemini/generative-ai-js)** — Google Gemini SDK
 - **[PM2](https://pm2.keymetrics.io/)** — менеджер процессов для продакшна
 - **Timezone**: Asia/Yekaterinburg (UTC+5, Челябинск)

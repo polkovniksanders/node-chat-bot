@@ -2,21 +2,7 @@ import { readFile, writeFile, mkdir, rename } from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
 import { logger } from '@/utils/logger.js';
-
-export type ModuleName =
-  | 'daily-cycle'
-  | 'daily-events'
-  | 'sora-videos'
-  | 'ai-chat'
-  | 'voice-transcription'
-  | 'image-generation'
-  | 'weather'
-  | 'secret-whisper'
-  | 'events-manual'
-  | 'emoji-reactions'
-  | 'user-memory'
-  | 'sora-admin'
-  | 'say-admin';
+import { ALL_MODULE_NAMES, type ModuleName } from '@/modules/moduleRegistry.js';
 
 type ModuleConfig = Record<string, Partial<Record<ModuleName, boolean>>>;
 
@@ -83,14 +69,8 @@ export async function setEnabled(
 export function getStatus(chatId: string | number): Record<ModuleName, { enabled: boolean; isDefault: boolean }> {
   const key = String(chatId);
   const chatConfig = config[key] ?? {};
-  const ALL_MODULES: ModuleName[] = [
-    'daily-cycle', 'daily-events', 'sora-videos',
-    'ai-chat', 'voice-transcription', 'image-generation', 'weather',
-    'secret-whisper', 'events-manual', 'emoji-reactions', 'user-memory',
-    'sora-admin', 'say-admin',
-  ];
   const result = {} as Record<ModuleName, { enabled: boolean; isDefault: boolean }>;
-  for (const m of ALL_MODULES) {
+  for (const m of ALL_MODULE_NAMES) {
     const override = chatConfig[m];
     result[m] = {
       enabled: override === undefined ? true : override,

@@ -110,8 +110,8 @@ async function processTitle(raw: string): Promise<string> {
   // If looks non-Russian (no Cyrillic) — translate
   if (/[а-яёА-ЯЁ]/.test(cleaned)) return cleaned;
   try {
-    const { gptunnelChat } = await import('@/ai/gptunnel.js');
-    const result = await gptunnelChat([
+    const { polzaChat } = await import('@/ai/polza.js');
+    const result = await polzaChat([
       {
         role: 'system',
         content: 'Переведи название видео на русский язык. Верни только перевод, без кавычек и пояснений.',
@@ -126,8 +126,8 @@ async function processTitle(raw: string): Promise<string> {
 
 async function generateDescription(title: string, rawSnippet: string): Promise<string> {
   try {
-    const { gptunnelChat } = await import('@/ai/gptunnel.js');
-    const result = await gptunnelChat([
+    const { polzaChat } = await import('@/ai/polza.js');
+    const result = await polzaChat([
       {
         role: 'system',
         content:

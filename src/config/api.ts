@@ -1,6 +1,3 @@
-export const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
-export const ANTHROPIC_MODEL = 'claude-haiku-4-5-20251001';
-
 export const TIMEOUT_SHORT = 5000;
 export const TIMEOUT_MEDIUM = 6000;
 export const TIMEOUT_LONG = 8000;

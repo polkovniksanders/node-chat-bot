@@ -11,7 +11,7 @@ import { getAnimalMoviePost } from '../src/content/animalMovies.js';
 import { getYoutubeVideoPost } from '../src/content/youtubeVideos.js';
 import { generatePetNamesPost } from '../src/content/petNames.js';
 import { generateAnimalStoryPost } from '../src/content/animalStory.js';
-import { TEST_CHANNEL } from '../src/config/constants.js';
+const TEST_CHANNEL = process.env.CHANNEL_ID ?? '';
 
 async function send(text: string, image?: Buffer | null) {
   if (image) {

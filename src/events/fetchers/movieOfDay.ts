@@ -5,7 +5,7 @@
 
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import path from 'path';
-import { gptunnelChat } from '@/ai/gptunnel.js';
+import { polzaChat } from '@/ai/polza.js';
 
 interface DigestMovie {
   title: string;
@@ -54,7 +54,7 @@ async function saveHistory(ids: number[]): Promise<void> {
 }
 
 async function generateStepkaComment(title: string, description: string): Promise<string> {
-  const result = await gptunnelChat([
+  const result = await polzaChat([
     {
       role: 'system',
       content:
@@ -133,7 +133,7 @@ async function fetchFromTmdb(): Promise<DigestMovie | null> {
 
 async function fetchFromAI(): Promise<DigestMovie | null> {
   try {
-    const raw = await gptunnelChat([
+    const raw = await polzaChat([
       {
         role: 'system',
         content:

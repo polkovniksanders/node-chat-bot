@@ -106,29 +106,6 @@ async function fetchFromPollinations(prompt: string): Promise<Buffer | null> {
   }
 }
 
-async function fetchFromHuggingFace(prompt: string): Promise<Buffer | null> {
-  const token = process.env.HF_TOKEN;
-  if (!token) return null;
-
-  try {
-    const res = await fetch(
-      'https://router.huggingface.co/hf-inference/models/stabilityai/stable-diffusion-xl-base-1.0',
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ inputs: prompt }),
-      },
-    );
-    if (!res.ok) return null;
-    return Buffer.from(await res.arrayBuffer());
-  } catch {
-    return null;
-  }
-}
-
 export async function generateNewsImage(params: NewsParams): Promise<Buffer | null> {
   const prompt = buildImagePrompt(params);
   console.log('🎨 Image prompt:', prompt);
@@ -138,13 +115,6 @@ export async function generateNewsImage(params: NewsParams): Promise<Buffer | nu
   if (fromPollinations) {
     console.log('✅ Image ready from Pollinations.ai');
     return fromPollinations;
-  }
-
-  console.warn('⚠️ Pollinations failed, trying HuggingFace SDXL...');
-  const fromHuggingFace = await fetchWithTimeout(() => fetchFromHuggingFace(prompt), 35_000);
-  if (fromHuggingFace) {
-    console.log('✅ Image ready from HuggingFace');
-    return fromHuggingFace;
   }
 
   console.warn('⚠️ Image generation failed — will post text only');

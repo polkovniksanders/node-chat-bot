@@ -1,5 +1,5 @@
 import { Context } from 'grammy';
-import { gptunnelChat } from '@/ai/gptunnel.js';
+import { polzaChat } from '@/ai/polza.js';
 
 const ALLOWED_REACTIONS = [
   '👍','👎','❤️','🔥','🥰','👏','😁','🤔','🤯','😱','🤬','😢','🎉','🤩','🤮',
@@ -24,7 +24,7 @@ async function chooseReactionWithAI(text: string): Promise<string> {
 Сообщение: "${text.slice(0, 200)}"`;
 
   try {
-    const result = await gptunnelChat([{ role: 'user', content: prompt }]);
+    const result = await polzaChat([{ role: 'user', content: prompt }]);
     const emoji = result.trim();
     if (ALLOWED_REACTIONS.includes(emoji)) return emoji;
   } catch {

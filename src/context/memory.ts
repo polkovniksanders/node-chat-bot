@@ -11,11 +11,10 @@ export function pushToContext(
   userId: number,
   role: ChatMsg['role'],
   content: string,
-  reasoning_details?: unknown,
 ) {
   const key = contextKey(chatId, userId);
   const arr = contexts.get(key) ?? [];
-  arr.push({ role, content, reasoning_details });
+  arr.push({ role, content });
   contexts.set(key, arr.slice(-12));
 }
 

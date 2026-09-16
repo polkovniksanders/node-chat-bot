@@ -139,6 +139,9 @@ data/
 !.yarn/sdks
 !.yarn/versions
 
+# macOS
+.DS_Store
+
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*

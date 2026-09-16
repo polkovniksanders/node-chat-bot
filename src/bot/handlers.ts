@@ -6,9 +6,7 @@ import { fetchWeather } from '@/weather/fetch-weather.js';
 import { formatWeather } from '@/weather/formatter.js';
 import { generateImage } from '@/generate/generate-image.js';
 import { checkRateLimit, recordGeneration, formatRemaining } from '@/generate/rate-limiter.js';
-import { setupSoraHandler } from '@/bot/soraHandler.js';
 import { setupVoiceHandler } from '@/bot/voiceHandler.js';
-import { setupSayHandler } from '@/bot/sayHandler.js';
 import { setupWhisperHandler } from '@/bot/whisperHandler.js';
 import { setupModuleAdminHandler } from '@/bot/moduleAdminHandler.js';
 import { isEnabled } from '@/modules/moduleConfig.js';
@@ -36,8 +34,6 @@ async function sendWeather(ctx: Context, city: string) {
 
 export function setupHandlers(botInstance: typeof bot) {
   setupModuleAdminHandler();
-  setupSoraHandler();
-  setupSayHandler();
   setupWhisperHandler(botInstance);
   setupVoiceHandler(botInstance);
 

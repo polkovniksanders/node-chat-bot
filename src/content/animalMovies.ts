@@ -1,7 +1,7 @@
 // Dynamic animal movie source:
 // Primary:  TMDB API (themoviedb.org) — needs TMDB_API_KEY in .env
 //           History tracked in data/movie-history.json to avoid repeats (~400 movies before cycling)
-// Fallback: AI (GPTunnel) generates a post about a real animal movie
+// Fallback: AI (Polza) generates a post about a real animal movie
 
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import path from 'path';
@@ -80,8 +80,8 @@ async function saveHistory(ids: number[]): Promise<void> {
 // ─── AI helpers ───────────────────────────────────────────────────────────────
 
 async function generateStepkaComment(title: string, description: string): Promise<string> {
-  const { gptunnelChat } = await import('@/ai/gptunnel.js');
-  const result = await gptunnelChat([
+  const { polzaChat } = await import('@/ai/polza.js');
+  const result = await polzaChat([
     {
       role: 'system',
       content:
@@ -172,8 +172,8 @@ async function fetchFromTmdb(): Promise<AnimalMovie | null> {
 
 async function fetchFromAI(): Promise<AnimalMovie | null> {
   try {
-    const { gptunnelChat } = await import('@/ai/gptunnel.js');
-    const raw = await gptunnelChat([
+    const { polzaChat } = await import('@/ai/polza.js');
+    const raw = await polzaChat([
       {
         role: 'system',
         content:

@@ -10,12 +10,13 @@ import {
 import { fetchTrackOfDay, buildTrackMessage } from '@/events/fetchers/trackOfDay.js';
 import { fetchMovieOfDay } from '@/events/fetchers/movieOfDay.js';
 import { bot } from '@/botInstance.js';
-import { TIMEZONE, TEST_CHANNEL } from '@/config/constants.js';
+import { TIMEZONE } from '@/config/constants.js';
 import { getRandomUser } from '@/config/users.js';
 import { loadUserMemory } from '@/context/userMemory.js';
 import { buildCoffeeGreetingPrompt, buildDailyDialoguePrompt, buildDailyDialogueWithFactPrompt } from '@/config/prompts.js';
-import { gptunnelChat } from '@/ai/gptunnel.js';
+import { polzaChat } from '@/ai/polza.js';
 import { isEnabled } from '@/modules/moduleConfig.js';
+import { logger } from '@/utils/logger.js';
 
 function generateSpreadDelays(count: number, maxMinutes: number, minGapMinutes: number): number[] {
   const delays: number[] = [];
@@ -58,7 +59,7 @@ export function setupDailyEventsCron() {
           try {
             const memories = await loadUserMemory(targetUser.id);
             const prompt = buildCoffeeGreetingPrompt(targetUser, memories);
-            const personal = await gptunnelChat([{ role: 'user', content: prompt }]);
+            const personal = await polzaChat([{ role: 'user', content: prompt }]);
             if (personal.trim()) {
               const mention = targetUser.username
                 ? `@${targetUser.username}`
@@ -78,8 +79,7 @@ export function setupDailyEventsCron() {
           await bot.api.sendMessage(channelId, `☕ ${caption}`, { parse_mode: 'HTML' });
         }
       } catch (err) {
-        const msg = `❌ Ошибка кофе-поста (8:55).\n\n${err instanceof Error ? err.message : err}`;
-        await bot.api.sendMessage(TEST_CHANNEL, msg).catch(() => {});
+        logger.error('Кофе-пост (8:55) ошибся', { err: err instanceof Error ? err.message : String(err) });
       }
     },
     { timezone: TIMEZONE },
@@ -97,8 +97,7 @@ export function setupDailyEventsCron() {
         const text = await fetchDailyFactsForDate(now);
         await bot.api.sendMessage(channelId, text, { parse_mode: 'HTML' });
       } catch (err) {
-        const msg = `❌ Ошибка дайджеста (9:00).\n\n${err instanceof Error ? err.message : err}`;
-        await bot.api.sendMessage(TEST_CHANNEL, msg).catch(() => {});
+        logger.error('Дайджест (9:00) ошибся', { err: err instanceof Error ? err.message : String(err) });
       }
     },
     { timezone: TIMEZONE },
@@ -113,8 +112,7 @@ export function setupDailyEventsCron() {
         const text = await fetchFinancePost();
         await bot.api.sendMessage(channelId, text, { parse_mode: 'HTML' });
       } catch (err) {
-        const msg = `❌ Ошибка финансового поста (9:05).\n\n${err instanceof Error ? err.message : err}`;
-        await bot.api.sendMessage(TEST_CHANNEL, msg).catch(() => {});
+        logger.error('Финансовый пост (9:05) ошибся', { err: err instanceof Error ? err.message : String(err) });
       }
     },
     { timezone: TIMEZONE },
@@ -140,8 +138,7 @@ export function setupDailyEventsCron() {
         const message = parts.join('\n\n<b>──────────────</b>\n\n');
         await bot.api.sendMessage(channelId, message, { parse_mode: 'HTML' });
       } catch (err) {
-        const msg = `❌ Ошибка трека/фильма (9:10).\n\n${err instanceof Error ? err.message : err}`;
-        await bot.api.sendMessage(TEST_CHANNEL, msg).catch(() => {});
+        logger.error('Трек/фильм (9:10) ошибся', { err: err instanceof Error ? err.message : String(err) });
       }
     },
     { timezone: TIMEZONE },
@@ -174,16 +171,11 @@ export function setupDailyEventsCron() {
               ? buildDailyDialogueWithFactPrompt(user, memories, facts[Math.floor(Math.random() * facts.length)])
               : buildDailyDialoguePrompt(user, memories);
 
-            const msg = await gptunnelChat([{ role: 'user', content: prompt }]);
+            const msg = await polzaChat([{ role: 'user', content: prompt }]);
             const mention = user.username ? `@${user.username}` : user.firstName;
             await bot.api.sendMessage(channelId, `${mention} ${msg.trim()}`);
           } catch (err) {
-            await bot.api
-              .sendMessage(
-                TEST_CHANNEL,
-                `❌ Ошибка случайного диалога.\n\n${err instanceof Error ? err.message : err}`,
-              )
-              .catch(() => {});
+            logger.error('Случайный диалог (10:00) ошибся', { err: err instanceof Error ? err.message : String(err) });
           }
         }, delayMs);
       });

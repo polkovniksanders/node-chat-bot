@@ -7,8 +7,9 @@ import { getAnimalMoviePost } from '@/content/animalMovies.js';
 import { getYoutubeVideoPost } from '@/content/youtubeVideos.js';
 import { generatePetNamesPost } from '@/content/petNames.js';
 import { generateAnimalStoryPost } from '@/content/animalStory.js';
-import { TEST_CHANNEL, TIMEZONE } from '@/config/constants.js';
+import { TIMEZONE } from '@/config/constants.js';
 import { isEnabled } from '@/modules/moduleConfig.js';
+import { logger } from '@/utils/logger.js';
 
 const CHANNEL_ID = process.env.CHANNEL_ID!;
 
@@ -18,13 +19,8 @@ async function sendPost(text: string, image?: Buffer | null) {
       caption: text,
       parse_mode: 'HTML',
     });
-    await bot.api.sendPhoto(TEST_CHANNEL, new InputFile(image, 'post.jpg'), {
-      caption: text,
-      parse_mode: 'HTML',
-    });
   } else {
     await bot.api.sendMessage(CHANNEL_ID, text, { parse_mode: 'HTML' });
-    await bot.api.sendMessage(TEST_CHANNEL, text, { parse_mode: 'HTML' });
   }
 }
 
@@ -85,9 +81,8 @@ export function setupDailyCycleCron() {
         }
         console.log(`✅ День ${day} успешно опубликован`);
       } catch (err) {
-        const errorMsg = `❌ Ошибка публикации (день ${day}).\n\n${err instanceof Error ? err.message : err}`;
-        await bot.api.sendMessage(TEST_CHANNEL, errorMsg).catch(() => {});
         console.error(`❌ Daily cycle day ${day} failed:`, err);
+        logger.error('Daily cycle day failed', { day, err: err instanceof Error ? err.message : String(err) });
       }
     },
     { timezone: TIMEZONE },

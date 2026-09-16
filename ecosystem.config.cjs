@@ -5,16 +5,20 @@ module.exports = {
       script: './dist/index.js',
       env: {
         NODE_ENV: 'production',
-        GPTUNNEL_API_KEY: process.env.GPTUNNEL_API_KEY,
         TELEGRAM_TOKEN: process.env.TELEGRAM_TOKEN,
-        OPENAI_API_KEY: process.env.OPENAI_API_KEY,
-        GEMINI_API_KEY: process.env.GEMINI_API_KEY,
-        DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY,
-        GROQ_API_KEY: process.env.GROQ_API_KEY,
-        ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
-        HF_TOKEN: process.env.HF_TOKEN,
+        ADMIN_USER_ID: process.env.ADMIN_USER_ID,
         CHANNEL_ID: process.env.CHANNEL_ID,
         EVENTS_CHANNEL_ID: process.env.EVENTS_CHANNEL_ID,
+        // Polza.ai — единственный LLM-провайдер
+        POLZA_API_URL: process.env.POLZA_API_URL,
+        POLZA_API_KEY: process.env.POLZA_API_KEY,
+        POLZA_MODEL: process.env.POLZA_MODEL,
+        POLZA_SMART_MODEL: process.env.POLZA_SMART_MODEL,
+        // Внешние API модулей
+        GEONAMES_USERNAME: process.env.GEONAMES_USERNAME,
+        OPENWEATHERMAP_API_KEY: process.env.OPENWEATHERMAP_API_KEY,
+        TMDB_API_KEY: process.env.TMDB_API_KEY,
+        YOUTUBE_API_KEY: process.env.YOUTUBE_API_KEY,
       }
     }
   ]

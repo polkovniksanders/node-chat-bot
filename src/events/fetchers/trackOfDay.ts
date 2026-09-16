@@ -1,4 +1,4 @@
-import { gptunnelChat } from '@/ai/gptunnel.js';
+import { polzaChat } from '@/ai/polza.js';
 
 interface TrackOfDay {
   artist: string;
@@ -20,7 +20,7 @@ export async function fetchTrackOfDay(): Promise<TrackOfDay> {
   "comment": "Короткий комментарий от Степки (1-2 предложения, в характере кота)"
 }`;
 
-  const raw = await gptunnelChat([{ role: 'user', content: prompt }]);
+  const raw = await polzaChat([{ role: 'user', content: prompt }]);
 
   // Вырезаем JSON из ответа (на случай если AI добавит лишнее)
   const match = raw.match(/\{[\s\S]*\}/);

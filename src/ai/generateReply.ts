@@ -1,5 +1,4 @@
-import { gptunnelChatSmart } from '@/ai/gptunnel.js';
-import { callAnthropic } from '@/ai/generateContent.js';
+import { polzaChatSmart } from '@/ai/polza.js';
 import { getUserContext, pushToContext } from '@/context/memory.js';
 import { loadUserMemory, saveUserMemory, formatMemoriesForPrompt } from '@/context/userMemory.js';
 import { CHAT_BOT_PROMPT, CHAT_MOODS, LENGTH_MODES, OPENING_STYLES, buildGroupReplyPrompt, PASSIVE_EXTRACTION_PROMPT } from '@/config/prompts.js';
@@ -57,27 +56,15 @@ export async function generateReply(
   }
 
   const messages = [
-    { role: 'system', content: systemPrompt },
-    ...history.map((m) => ({ role: m.role, content: m.content })),
+    { role: 'system' as const, content: systemPrompt },
+    ...history.map((m) => ({ role: m.role as 'system' | 'user' | 'assistant', content: m.content })),
   ];
 
   let answer = '';
   try {
-    answer = (await gptunnelChatSmart(messages, { temperature })).trim();
+    answer = (await polzaChatSmart(messages, { temperature })).trim();
   } catch (err) {
-    console.error('[generateReply] GPTunnel error, trying Anthropic fallback:', err);
-  }
-
-  if (!answer) {
-    try {
-      const systemMsg = messages.find((m) => m.role === 'system')?.content ?? '';
-      const userMsgs = messages.filter((m) => m.role !== 'system');
-      const lastUserContent = userMsgs.at(-1)?.content ?? userMessage;
-      answer = (await callAnthropic(systemMsg, lastUserContent)).trim();
-      if (answer) console.log('[generateReply] Anthropic fallback succeeded');
-    } catch (err2) {
-      console.error('[generateReply] Anthropic fallback error:', err2);
-    }
+    console.error('[generateReply] Polza error:', err);
   }
 
   if (!answer) {
@@ -104,7 +91,7 @@ export async function extractAndSaveFact(userId: number, userText: string): Prom
   if (userText.trim().length < 10) return;
 
   try {
-    const response = await gptunnelChatSmart([
+    const response = await polzaChatSmart([
       { role: 'system', content: PASSIVE_EXTRACTION_PROMPT },
       { role: 'user', content: userText },
     ]);
@@ -138,7 +125,7 @@ export async function maybeRememberFact(userId: number, userMessage: string): Pr
   if (!MEMORY_TRIGGER.test(userMessage)) return false;
 
   try {
-    const response = await gptunnelChatSmart([
+    const response = await polzaChatSmart([
       { role: 'system', content: MEMORY_SAFETY_SYSTEM },
       { role: 'user', content: `Сообщение пользователя: "${userMessage}"` },
     ]);
