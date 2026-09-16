@@ -156,12 +156,20 @@ async function loadConfig(): Promise<void> {
       raw.cronChats = {};
     }
 
+    const cronChatsRaw = raw.cronChats as Record<string, unknown> | undefined;
+    const needsPersist = raw._migrated !== 'v2' ||
+      (cronChatsRaw && ('daily-cycle' in cronChatsRaw || 'sora-videos' in cronChatsRaw));
+
     config = await migrateConfig(raw);
 
-    // If migration changed anything (new _migrated key or populated cronChats), persist
-    if (raw._migrated !== 'v2') {
+    // If migration changed anything (new _migrated key or structural changes to cronChats), persist
+    if (needsPersist) {
       await persistConfig();
-      logger.info('[config] module-config.json migrated to v2 format');
+      if (raw._migrated !== 'v2') {
+        logger.info('[config] module-config.json migrated to v2 format');
+      } else {
+        logger.info('[config] module-config.json updated: migrated old cron module keys to new split modules');
+      }
     }
   } catch (err: any) {
     if (err.code !== 'ENOENT') {
