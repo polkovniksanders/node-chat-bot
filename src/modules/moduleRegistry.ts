@@ -9,8 +9,32 @@ export interface ModuleDefinition {
 export const MODULES = [
   // Cron
   {
-    name: 'daily-cycle',
-    description: '5-дневный цикл постов (котовости, фильмы, видео, клички, рассказы)',
+    name: 'daily-news',
+    description: 'День 1 цикла — новостной дайджест',
+    class: 'cron',
+    defaultChatIdEnv: 'CHANNEL_ID',
+  },
+  {
+    name: 'daily-animal-movie',
+    description: 'День 2 цикла — котовости: животные из фильмов',
+    class: 'cron',
+    defaultChatIdEnv: 'CHANNEL_ID',
+  },
+  {
+    name: 'daily-youtube-video',
+    description: 'День 3 цикла — видео с YouTube',
+    class: 'cron',
+    defaultChatIdEnv: 'CHANNEL_ID',
+  },
+  {
+    name: 'daily-pet-names',
+    description: 'День 4 цикла — клички для питомцев',
+    class: 'cron',
+    defaultChatIdEnv: 'CHANNEL_ID',
+  },
+  {
+    name: 'daily-animal-story',
+    description: 'День 5 цикла — рассказ о животном',
     class: 'cron',
     defaultChatIdEnv: 'CHANNEL_ID',
   },
