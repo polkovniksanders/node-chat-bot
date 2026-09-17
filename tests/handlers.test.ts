@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-test('group mention reaches the AI text handler', async () => {
+test('group reply includes the recent conversation from other participants', async () => {
   const originalCwd = process.cwd();
   const workdir = await mkdtemp(path.join(tmpdir(), 'telegram-bot-handlers-test-'));
   process.chdir(workdir);
@@ -12,11 +12,14 @@ test('group mention reaches the AI text handler', async () => {
   process.env.POLZA_API_KEY = 'test-key';
 
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = async () =>
-    new Response(JSON.stringify({ choices: [{ message: { content: 'Тестовый ответ' } }] }), {
+  const aiRequests: Array<{ messages?: Array<{ role: string; content: string }> }> = [];
+  globalThis.fetch = async (_input, init) => {
+    aiRequests.push(JSON.parse(String(init?.body)));
+    return new Response(JSON.stringify({ choices: [{ message: { content: 'Тестовый ответ' } }] }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
+  };
 
   try {
     const [{ bot, initBotInfo }, { setupHandlers }, moduleConfig] = await Promise.all([
@@ -79,6 +82,17 @@ test('group mention reaches the AI text handler', async () => {
         message_id: 1,
         date: 1,
         chat: { id: -1001, type: 'group', title: 'Test group' },
+        from: { id: 41, is_bot: false, first_name: 'Даша', username: 'dasha' },
+        text: 'Даша — это я',
+      },
+    });
+
+    await bot.handleUpdate({
+      update_id: 2,
+      message: {
+        message_id: 2,
+        date: 2,
+        chat: { id: -1001, type: 'group', title: 'Test group' },
         from: { id: 42, is_bot: false, first_name: 'Tester', username: 'tester' },
         text: '@test_bot привет',
         entities: [{ offset: 0, length: 9, type: 'mention' }],
@@ -86,6 +100,33 @@ test('group mention reaches the AI text handler', async () => {
     });
 
     assert.equal(sentMessages.includes('Тестовый ответ'), true);
+    assert.equal(
+      aiRequests.some((request) =>
+        request.messages?.some((message) => message.content === 'Даша: Даша — это я'),
+      ),
+      true,
+      JSON.stringify(aiRequests),
+    );
+
+    aiRequests.length = 0;
+    await bot.handleUpdate({
+      update_id: 3,
+      channel_post: {
+        message_id: 3,
+        date: 3,
+        chat: { id: -1002, type: 'channel', title: 'Test channel' },
+        text: '@test_bot новость',
+        entities: [{ offset: 0, length: 9, type: 'mention' }],
+      },
+    });
+
+    assert.equal(
+      aiRequests.some((request) =>
+        request.messages?.some((message) => message.content === 'Test channel: @test_bot новость'),
+      ),
+      true,
+      JSON.stringify(aiRequests),
+    );
   } finally {
     globalThis.fetch = originalFetch;
     process.chdir(originalCwd);

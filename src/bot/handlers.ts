@@ -1,6 +1,6 @@
 import { Context, InputFile } from 'grammy';
 import { bot, BOT_USERNAME, BOT_ID } from '@/botInstance.js';
-import { generateReply, maybeRememberFact, extractAndSaveFact } from '@/ai/generateReply.js';
+import { extractAndSaveFact, generateReply, isExplicitMemoryRequest } from '@/ai/generateReply.js';
 import { getDailyEvents } from '@/events/events.js';
 import { fetchWeather } from '@/weather/fetch-weather.js';
 import { formatWeather } from '@/weather/formatter.js';
@@ -11,12 +11,18 @@ import { setupWhisperHandler } from '@/bot/whisperHandler.js';
 import { setupModuleAdminHandler } from '@/bot/moduleAdminHandler.js';
 import { isEnabled } from '@/modules/moduleConfig.js';
 import { findUserById, RegisteredUser } from '@/config/users.js';
-import { loadUserMemory } from '@/context/userMemory.js';
+import {
+  forgetUserMemory,
+  formatMemorySummary,
+  loadUserMemoryState,
+  parseMemoryCommand,
+} from '@/context/userMemory.js';
 import { buildUserContextBlock, buildReplyContextBlock } from '@/config/prompts.js';
-import { upsertUserProfile } from '@/context/userProfiles.js';
+import { forgetUserProfile, upsertUserProfile } from '@/context/userProfiles.js';
 import { downloadVoice } from '@/bot/voiceUtils.js';
 import { transcribeAudio } from '@/ai/transcribe.js';
 import { logger } from '@/utils/logger.js';
+import { clearUserContext, pushToGroupContext } from '@/context/memory.js';
 
 import { DEFAULT_CITY } from '@/config/constants.js';
 import { tryReact, shouldReactRandomly } from '@/bot/reactions.js';
@@ -66,13 +72,17 @@ export function setupHandlers(botInstance: typeof bot) {
 
     const prompt = ctx.match.trim();
     if (!prompt) {
-      await ctx.reply('📝 Укажи промпт после команды.\nПример: /generate sunset over mountains, digital art');
+      await ctx.reply(
+        '📝 Укажи промпт после команды.\nПример: /generate sunset over mountains, digital art',
+      );
       return;
     }
 
     const { allowed, remainingMs } = checkRateLimit(userId);
     if (!allowed) {
-      await ctx.reply(`⏳ Ты уже генерировал картинку. Следующая будет доступна через ${formatRemaining(remainingMs)}.`);
+      await ctx.reply(
+        `⏳ Ты уже генерировал картинку. Следующая будет доступна через ${formatRemaining(remainingMs)}.`,
+      );
       return;
     }
 
@@ -94,7 +104,7 @@ export function setupHandlers(botInstance: typeof bot) {
 
   // Реакции на нетекстовые сообщения в группах и каналах (фото, видео, стикеры и т.д.)
   botInstance.on('msg', async (ctx, next) => {
-    if (ctx.chat.type === 'private') return;
+    if (ctx.chat.type === 'private') return next();
     if (ctx.msg.text) return next(); // текстовые обрабатывает msg:text
 
     if (isEnabled(ctx.chat.id, 'emoji-reactions') && shouldReactRandomly()) {
@@ -105,13 +115,29 @@ export function setupHandlers(botInstance: typeof bot) {
   // Текстовые сообщения — личка, группы и каналы
   botInstance.on('msg:text', async (ctx) => {
     const messageText = ctx.msg.text.trim();
-    logger.info('msg:text received', { chat: ctx.chat.type, from: ctx.from?.id, text: messageText.slice(0, 50) });
+    logger.info('msg:text received', {
+      chat: ctx.chat.type,
+      from: ctx.from?.id,
+      text: messageText.slice(0, 50),
+    });
 
     // Игнорируем команды
     if (messageText.startsWith('/')) return;
 
     if (ctx.chat.type === 'private') {
       const chatId = ctx.chat.id;
+      const fromId = ctx.from!.id;
+      const memoryCommand = parseMemoryCommand(messageText);
+      if (memoryCommand === 'show') {
+        await ctx.reply(formatMemorySummary(await loadUserMemoryState(fromId)));
+        return;
+      }
+      if (memoryCommand === 'forget') {
+        await Promise.all([forgetUserMemory(fromId), forgetUserProfile(fromId)]);
+        clearUserContext(chatId, fromId);
+        await ctx.reply('Забыл всё, что хранил о тебе. Начинаем с чистого листа.');
+        return;
+      }
 
       // "погода [город]" — альтернатива /weather для личных сообщений
       const weatherMatch = messageText.match(/^погода\s*(.*)/i);
@@ -124,7 +150,6 @@ export function setupHandlers(botInstance: typeof bot) {
       if (!isEnabled(chatId, 'ai-chat')) return;
 
       // Обычный чат с ИИ (private chat всегда имеет from)
-      const fromId = ctx.from!.id;
       const reply = await generateReply(chatId, fromId, messageText);
       try {
         await ctx.reply(reply, { parse_mode: 'HTML' });
@@ -132,9 +157,12 @@ export function setupHandlers(botInstance: typeof bot) {
         await ctx.reply(reply.replace(/<[^>]*>/g, ''));
       }
       if (isEnabled(chatId, 'user-memory')) {
-        const remembered = await maybeRememberFact(fromId, messageText);
-        if (remembered) await ctx.reply('🐾 Запомнил!');
-        extractAndSaveFact(fromId, messageText).catch(() => {});
+        const remember = extractAndSaveFact(fromId, messageText);
+        if (isExplicitMemoryRequest(messageText)) {
+          if (await remember) await ctx.reply('🐾 Запомнил!');
+        } else {
+          remember.catch(() => {});
+        }
       }
       return;
     }
@@ -145,12 +173,16 @@ export function setupHandlers(botInstance: typeof bot) {
 
     if (!isChannelPost && !userId) return;
 
+    if (isEnabled(ctx.chat.id, 'ai-chat')) {
+      const speaker = isChannelPost ? (ctx.chat.title ?? 'Канал') : ctx.from!.first_name;
+      pushToGroupContext(ctx.chat.id, 'user', `${speaker}: ${messageText}`);
+    }
+
     const replyFrom = ctx.msg.reply_to_message?.from;
 
     // Триггер 1: reply на сообщение бота
     const isReplyToBot =
-      replyFrom?.id === BOT_ID ||
-      (BOT_USERNAME && replyFrom?.username === BOT_USERNAME);
+      replyFrom?.id === BOT_ID || (BOT_USERNAME && replyFrom?.username === BOT_USERNAME);
 
     // Триггер 2: @упоминание бота через entities (точный метод)
     const isMentioned =
@@ -159,7 +191,8 @@ export function setupHandlers(botInstance: typeof bot) {
         (e) =>
           e.type === 'mention' &&
           messageText.slice(e.offset, e.offset + e.length) === `@${BOT_USERNAME}`,
-      ) ?? false);
+      ) ??
+        false);
 
     logger.debug('msg received', {
       from: ctx.from?.username,
@@ -198,6 +231,11 @@ export function setupHandlers(botInstance: typeof bot) {
     // Если после очистки текст пустой — пропускаем
     if (!userText) return;
 
+    if (parseMemoryCommand(userText)) {
+      await ctx.reply('Память — личная вещь. Напиши мне эту фразу в личку.');
+      return;
+    }
+
     // Если ответ на голосовое → расшифровать + ответить
     const repliedVoice = ctx.msg.reply_to_message?.voice;
     if (repliedVoice) {
@@ -226,10 +264,9 @@ export function setupHandlers(botInstance: typeof bot) {
       }
 
       const user = findUserById(userId);
-      const memories = await loadUserMemory(userId);
 
       if (user) {
-        extraSystemContext += buildUserContextBlock(user, memories);
+        extraSystemContext += buildUserContextBlock(user);
       } else {
         const profile = await upsertUserProfile(userId, ctx.from!.first_name, ctx.from!.username);
         const dynamicUser: RegisteredUser = {
@@ -238,12 +275,15 @@ export function setupHandlers(botInstance: typeof bot) {
           username: profile.username,
           description: `Незнакомый пользователь, общается в группе.`,
         };
-        extraSystemContext += buildUserContextBlock(dynamicUser, memories);
+        extraSystemContext += buildUserContextBlock(dynamicUser);
       }
     }
 
     const effectiveUserId = userId ?? 0;
-    const reply = await generateReply(chatId, effectiveUserId, userText, { extraSystemContext, isGroupReply: true });
+    const reply = await generateReply(chatId, effectiveUserId, userText, {
+      extraSystemContext,
+      isGroupReply: true,
+    });
 
     // Реакция на сообщение, которому отвечаем (всегда при ответе в группе)
     if (!isChannelPost) {
@@ -262,13 +302,16 @@ export function setupHandlers(botInstance: typeof bot) {
     }
 
     if (!isChannelPost && userId && isEnabled(chatId, 'user-memory')) {
-      const remembered = await maybeRememberFact(userId, userText);
-      if (remembered) {
-        await ctx.reply('🐾 Запомнил!', {
-          reply_parameters: { message_id: ctx.msg.message_id },
-        });
+      const remember = extractAndSaveFact(userId, userText);
+      if (isExplicitMemoryRequest(userText)) {
+        if (await remember) {
+          await ctx.reply('🐾 Запомнил!', {
+            reply_parameters: { message_id: ctx.msg.message_id },
+          });
+        }
+      } else {
+        remember.catch(() => {});
       }
-      extractAndSaveFact(userId, userText).catch(() => {});
     }
   });
 }

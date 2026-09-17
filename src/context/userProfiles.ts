@@ -1,4 +1,4 @@
-import { readFile, writeFile, mkdir } from 'fs/promises';
+import { readFile, writeFile, mkdir, rm } from 'fs/promises';
 import { join } from 'path';
 
 interface DynamicUserProfile {
@@ -43,4 +43,8 @@ export async function upsertUserProfile(
   await mkdir(profileDir(), { recursive: true });
   await writeFile(profilePath(userId), JSON.stringify(profile, null, 2), 'utf-8');
   return profile;
+}
+
+export async function forgetUserProfile(userId: number): Promise<void> {
+  await rm(profilePath(userId), { force: true });
 }
