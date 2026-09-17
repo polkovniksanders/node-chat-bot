@@ -1,16 +1,16 @@
 import { polzaChatSmart } from '@/ai/polza.js';
 import { getUserContext, pushToContext } from '@/context/memory.js';
 import { loadUserMemory, saveUserMemory, formatMemoriesForPrompt } from '@/context/userMemory.js';
-import { CHAT_BOT_PROMPT, CHAT_MOODS, LENGTH_MODES, OPENING_STYLES, buildGroupReplyPrompt, PASSIVE_EXTRACTION_PROMPT } from '@/config/prompts.js';
+import {
+  CHAT_BOT_PROMPT,
+  buildGroupReplyPrompt,
+  PASSIVE_EXTRACTION_PROMPT,
+} from '@/config/prompts.js';
 
 interface GenerateReplyOptions {
   extraSystemContext?: string;
   skipMemory?: boolean;
   isGroupReply?: boolean;
-}
-
-function pickRandom<T>(arr: T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)];
 }
 
 export async function generateReply(
@@ -25,24 +25,15 @@ export async function generateReply(
 
   // Build system prompt: extraContext + persistent memories + base persona
   let systemPrompt = '';
-  let temperature: number | undefined;
 
   if (options?.isGroupReply) {
-    const mood = pickRandom(CHAT_MOODS);
-    const lengthMode = pickRandom(LENGTH_MODES);
-    const openingStyle = pickRandom(OPENING_STYLES);
-
     const memories = options?.skipMemory ? [] : await loadUserMemory(userId);
-    const useMemoryActive = memories.length > 0 && Math.random() < 0.3;
 
     if (options?.extraSystemContext) systemPrompt += options.extraSystemContext;
-    systemPrompt += buildGroupReplyPrompt({ mood, lengthMode, openingStyle, useMemoryActive });
+    systemPrompt += buildGroupReplyPrompt();
 
     const memBlock = formatMemoriesForPrompt(memories);
     if (memBlock) systemPrompt += '\n\n' + memBlock;
-
-    temperature = mood.temperature;
-    console.log('[group reply params]', { mood: mood.name, length: lengthMode.name, useMemoryActive });
   } else {
     if (options?.extraSystemContext) {
       systemPrompt += options.extraSystemContext;
@@ -57,12 +48,15 @@ export async function generateReply(
 
   const messages = [
     { role: 'system' as const, content: systemPrompt },
-    ...history.map((m) => ({ role: m.role as 'system' | 'user' | 'assistant', content: m.content })),
+    ...history.map((m) => ({
+      role: m.role as 'system' | 'user' | 'assistant',
+      content: m.content,
+    })),
   ];
 
   let answer = '';
   try {
-    answer = (await polzaChatSmart(messages, { temperature })).trim();
+    answer = (await polzaChatSmart(messages)).trim();
   } catch (err) {
     console.error('[generateReply] Polza error:', err);
   }
