@@ -9,8 +9,8 @@ const BASE_URL = process.env.POLZA_API_URL ?? 'https://api.polza.ai/v1';
 const API_KEY = process.env.POLZA_API_KEY ?? '';
 
 // Модели: обычная (быстрая/дешёвая) и умная (медленнее/качественнее)
-const DEFAULT_MODEL = 'deepseek-v3-0324';
-const DEFAULT_SMART_MODEL = 'gpt-4.1-nano';
+const DEFAULT_MODEL = 'deepseek/deepseek-chat-v3-0324';
+const DEFAULT_SMART_MODEL = 'openai/gpt-4.1-nano';
 
 function getModel(): string {
   return process.env.POLZA_MODEL ?? DEFAULT_MODEL;

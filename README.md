@@ -137,8 +137,8 @@ data/
 | `EVENTS_CHANNEL_ID` | ID канала/группы для дайджеста событий | Нет |
 | `POLZA_API_KEY` | Ключ Polza.ai (единственный LLM-провайдер) | Да |
 | `POLZA_API_URL` | Base URL Polza.ai (по умолчанию `https://api.polza.ai/v1`) | Нет |
-| `POLZA_MODEL` | Обычная модель (по умолчанию `deepseek-v3-0324`) | Нет |
-| `POLZA_SMART_MODEL` | «Умная» модель для чата (по умолчанию `gpt-4.1-nano`) | Нет |
+| `POLZA_MODEL` | Обычная модель (по умолчанию `deepseek/deepseek-chat-v3-0324`) | Нет |
+| `POLZA_SMART_MODEL` | «Умная» модель для чата (по умолчанию `openai/gpt-4.1-nano`) | Нет |
 | `ADMIN_USER_ID` | Telegram ID администратора (доступ к `/modules`) | Да |
 | `OPENWEATHERMAP_API_KEY` | Погода (OpenWeatherMap, иначе Open-Meteo) | Нет |
 | `GEONAMES_USERNAME` | Геолокация (GeoNames) | Нет |

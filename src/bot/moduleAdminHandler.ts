@@ -1,6 +1,11 @@
 import { InlineKeyboard } from 'grammy';
 import { bot } from '@/botInstance.js';
-import { isEnabled, setEnabled, getStatus } from '@/modules/moduleConfig.js';
+import {
+  disableCronModule,
+  enableCronModule,
+  getStatus,
+  setEnabled,
+} from '@/modules/moduleConfig.js';
 import { MODULES, findModule, type ModuleName } from '@/modules/moduleRegistry.js';
 import { registerChat, getKnownChats, formatChatLabel } from '@/modules/knownChats.js';
 import { logger } from '@/utils/logger.js';
@@ -142,8 +147,12 @@ export function setupModuleAdminHandler(): void {
       return;
     }
 
-    const wasEnabled = isEnabled(chatId, name);
-    await setEnabled(chatId, name, !wasEnabled);
+    const wasEnabled = getStatus(chatId)[name].enabled;
+    if (def.class === 'cron') {
+      await (wasEnabled ? disableCronModule : enableCronModule)(chatId, name);
+    } else {
+      await setEnabled(chatId, name, !wasEnabled);
+    }
 
     logger.info('module toggled via button', { module: name, chatId, enabled: !wasEnabled, by: userId });
     await ctx.answerCallbackQuery(wasEnabled ? '⛔ Выключен' : '✅ Включён');
