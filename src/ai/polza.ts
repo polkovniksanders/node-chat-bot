@@ -22,7 +22,7 @@ function getSmartModel(): string {
 
 function getHeaders(): Record<string, string> {
   return {
-    'Authorization': `Bearer ${API_KEY}`,
+    Authorization: `Bearer ${API_KEY}`,
     'Content-Type': 'application/json',
   };
 }
@@ -36,6 +36,16 @@ interface ChatOptions {
   model?: string;
   temperature?: number;
   maxTokens?: number;
+  webSearch?: boolean;
+}
+
+interface ChatCompletionResponse {
+  choices?: Array<{
+    message?: {
+      content?: string;
+      annotations?: Array<{ url_citation?: { url?: unknown } }>;
+    };
+  }>;
 }
 
 async function callPolza(messages: ChatMessage[], opts: ChatOptions = {}): Promise<string> {
@@ -44,6 +54,7 @@ async function callPolza(messages: ChatMessage[], opts: ChatOptions = {}): Promi
     messages,
     temperature: opts.temperature,
     max_tokens: opts.maxTokens,
+    ...(opts.webSearch && { plugins: [{ id: 'web', max_results: 3 }] }),
   };
 
   const res = await fetch(`${BASE_URL}/chat/completions`, {
@@ -57,9 +68,21 @@ async function callPolza(messages: ChatMessage[], opts: ChatOptions = {}): Promi
     throw new Error(`Polza API error ${res.status}: ${errText}`);
   }
 
-  const data: any = await res.json();
-  const content = data.choices?.[0]?.message?.content ?? '';
-  return content;
+  const data = (await res.json()) as ChatCompletionResponse;
+  const message = data.choices?.[0]?.message;
+  const content = message?.content ?? '';
+  const sources = opts.webSearch
+    ? [
+        ...new Set<string>(
+          (message?.annotations ?? [])
+            .map((annotation) => annotation.url_citation?.url)
+            .filter(
+              (url: unknown): url is string => typeof url === 'string' && /^https?:\/\//i.test(url),
+            ),
+        ),
+      ].slice(0, 3)
+    : [];
+  return sources.length > 0 ? `${content}\n\nИсточники:\n${sources.join('\n')}` : content;
 }
 
 /**
@@ -80,7 +103,7 @@ export async function polzaChat(
  */
 export async function polzaChatSmart(
   messages: ChatMessage[],
-  opts?: Pick<ChatOptions, 'temperature' | 'maxTokens'>,
+  opts?: Pick<ChatOptions, 'temperature' | 'maxTokens' | 'webSearch'>,
 ): Promise<string> {
   logger.debug('polzaChatSmart request', { model: getSmartModel(), messageCount: messages.length });
   return callPolza(messages, { ...opts, model: getSmartModel() });

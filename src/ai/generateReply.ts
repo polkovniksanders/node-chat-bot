@@ -23,6 +23,9 @@ interface GenerateReplyOptions {
   isGroupReply?: boolean;
 }
 
+const CURRENT_INFO_PATTERN =
+  /сегодня|сейчас|актуальн[а-яё]*|последн[а-яё]*|новост[а-яё]*|(?:^|[\s.,!?])курс(?:[\s.,!?]|$)|найди|поищи|поиск[а-яё]*|today|current|latest|news|search/iu;
+
 export async function generateReply(
   chatId: number | string,
   userId: number,
@@ -72,7 +75,9 @@ export async function generateReply(
 
   let answer = '';
   try {
-    answer = (await polzaChatSmart(messages)).trim();
+    answer = (
+      await polzaChatSmart(messages, { webSearch: CURRENT_INFO_PATTERN.test(userMessage) })
+    ).trim();
   } catch (err) {
     console.error('[generateReply] Polza error:', err);
   }
