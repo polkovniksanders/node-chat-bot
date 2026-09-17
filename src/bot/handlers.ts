@@ -93,9 +93,9 @@ export function setupHandlers(botInstance: typeof bot) {
   });
 
   // Реакции на нетекстовые сообщения в группах и каналах (фото, видео, стикеры и т.д.)
-  botInstance.on('msg', async (ctx) => {
+  botInstance.on('msg', async (ctx, next) => {
     if (ctx.chat.type === 'private') return;
-    if (ctx.msg.text) return; // текстовые обрабатывает msg:text
+    if (ctx.msg.text) return next(); // текстовые обрабатывает msg:text
 
     if (isEnabled(ctx.chat.id, 'emoji-reactions') && shouldReactRandomly()) {
       tryReact(ctx, ctx.msg.message_id).catch(() => {});

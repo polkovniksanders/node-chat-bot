@@ -38,13 +38,23 @@ interface ChannelOption {
   label: string;
 }
 
-/** Динамический список чатов из реестра известных чатов */
-function buildChannelList(): ChannelOption[] {
-  const chats = getKnownChats();
-  return chats.map((chat) => ({
-    chatId: chat.id,
-    label: formatChatLabel(chat),
-  }));
+async function botIsChatAdmin(chatId: string): Promise<boolean> {
+  try {
+    const member = await bot.api.getChatMember(chatId, bot.botInfo.id);
+    return member.status === 'administrator' || member.status === 'creator';
+  } catch {
+    return false;
+  }
+}
+
+/** Группы и каналы из реестра, в которых бот всё ещё администратор. */
+async function buildChannelList(): Promise<ChannelOption[]> {
+  const channels: ChannelOption[] = [];
+  for (const chat of getKnownChats()) {
+    if (chat.type === 'private' || !(await botIsChatAdmin(chat.id))) continue;
+    channels.push({ chatId: chat.id, label: formatChatLabel(chat) });
+  }
+  return channels;
 }
 
 function buildChannelKeyboard(channels: ChannelOption[]): InlineKeyboard {
@@ -102,11 +112,11 @@ export function setupModuleAdminHandler(): void {
       });
     }
 
-    const channels = buildChannelList();
+    const channels = await buildChannelList();
     logger.info('modules command', { userId, channels: channels.map((c) => c.chatId) });
 
     if (channels.length === 0) {
-      await ctx.reply('📭 Нет известных чатов. Добавьте бота в группу/канал или напишите ему в личку, затем попробуйте снова.');
+      await ctx.reply('📭 Нет групп или каналов, где бот является администратором.');
       return;
     }
 
@@ -124,6 +134,10 @@ export function setupModuleAdminHandler(): void {
       return;
     }
     const chatId = ctx.match[1];
+    if (!(await botIsChatAdmin(chatId))) {
+      await ctx.answerCallbackQuery('⛔ Бот не является администратором этого чата');
+      return;
+    }
     await ctx.editMessageText(moduleListMessage(chatId), {
       parse_mode: 'HTML',
       reply_markup: buildModuleKeyboard(chatId),
@@ -140,6 +154,11 @@ export function setupModuleAdminHandler(): void {
     }
     const chatId = ctx.match[1];
     const name = ctx.match[2] as ModuleName;
+
+    if (!(await botIsChatAdmin(chatId))) {
+      await ctx.answerCallbackQuery('⛔ Бот не является администратором этого чата');
+      return;
+    }
 
     const def = findModule(name);
     if (!def) {
@@ -170,7 +189,7 @@ export function setupModuleAdminHandler(): void {
       await ctx.answerCallbackQuery('⛔ Доступ только у администратора');
       return;
     }
-    const channels = buildChannelList();
+    const channels = await buildChannelList();
     await ctx.editMessageText('📡 <b>Выбери чат для управления модулями:</b>', {
       parse_mode: 'HTML',
       reply_markup: buildChannelKeyboard(channels),
