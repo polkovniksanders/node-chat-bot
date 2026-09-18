@@ -11,6 +11,7 @@ import { fetchTrackOfDay, buildTrackMessage } from '@/events/fetchers/trackOfDay
 import { fetchMovieOfDay } from '@/events/fetchers/movieOfDay.js';
 import { bot } from '@/botInstance.js';
 import { TIMEZONE } from '@/config/constants.js';
+import { getRandomUser } from '@/config/users.js';
 import { loadUserMemory } from '@/context/userMemory.js';
 import { buildCoffeeGreetingPrompt, buildDailyDialoguePrompt, buildDailyDialogueWithFactPrompt } from '@/config/prompts.js';
 import { getActiveRegisteredUsers } from '@/modules/activeUsers.js';
