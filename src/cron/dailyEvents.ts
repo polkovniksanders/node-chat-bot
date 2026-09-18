@@ -11,9 +11,9 @@ import { fetchTrackOfDay, buildTrackMessage } from '@/events/fetchers/trackOfDay
 import { fetchMovieOfDay } from '@/events/fetchers/movieOfDay.js';
 import { bot } from '@/botInstance.js';
 import { TIMEZONE } from '@/config/constants.js';
-import { getRandomUser } from '@/config/users.js';
 import { loadUserMemory } from '@/context/userMemory.js';
 import { buildCoffeeGreetingPrompt, buildDailyDialoguePrompt, buildDailyDialogueWithFactPrompt } from '@/config/prompts.js';
+import { getActiveRegisteredUsers } from '@/modules/activeUsers.js';
 import { polzaChat } from '@/ai/polza.js';
 import { getEnabledChatsForModule } from '@/modules/moduleConfig.js';
 import { logger } from '@/utils/logger.js';
@@ -187,22 +187,23 @@ export function setupDailyEventsCron() {
           if (chatsWithAi.length === 0) return;
 
           try {
-            const user = getRandomUser();
-            if (!user) return;
-
-            const memories = await loadUserMemory(user.id);
             const facts = await fetchDigestFacts();
 
-            const useFact = facts.length > 0 && Math.random() < 0.6;
-            const prompt = useFact
-              ? buildDailyDialogueWithFactPrompt(user, memories, facts[Math.floor(Math.random() * facts.length)])
-              : buildDailyDialoguePrompt(user, memories);
-
-            const msg = await polzaChat([{ role: 'user', content: prompt }]);
-            const mention = user.username ? `@${user.username}` : user.firstName;
-
-            // Отправляем в все чаты с daily-events + ai-chat
             for (const chatId of chatsWithAi) {
+              const activeUsers = getActiveRegisteredUsers(chatId, 7);
+              if (activeUsers.length === 0) continue;
+
+              const user = activeUsers[Math.floor(Math.random() * activeUsers.length)];
+              const memories = await loadUserMemory(user.id);
+
+              const useFact = facts.length > 0 && Math.random() < 0.6;
+              const prompt = useFact
+                ? buildDailyDialogueWithFactPrompt(user, memories, facts[Math.floor(Math.random() * facts.length)])
+                : buildDailyDialoguePrompt(user, memories);
+
+              const msg = await polzaChat([{ role: 'user', content: prompt }]);
+              const mention = user.username ? `@${user.username}` : user.firstName;
+
               try {
                 await bot.api.sendMessage(chatId, `${mention} ${msg.trim()}`);
               } catch (err) {

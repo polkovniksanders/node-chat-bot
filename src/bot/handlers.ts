@@ -23,6 +23,7 @@ import { downloadVoice } from '@/bot/voiceUtils.js';
 import { transcribeAudio } from '@/ai/transcribe.js';
 import { logger } from '@/utils/logger.js';
 import { clearUserContext, pushToGroupContext } from '@/context/memory.js';
+import { registerActiveUser } from '@/modules/activeUsers.js';
 
 import { DEFAULT_CITY } from '@/config/constants.js';
 import { tryReact, shouldReactRandomly } from '@/bot/reactions.js';
@@ -120,6 +121,10 @@ export function setupHandlers(botInstance: typeof bot) {
       from: ctx.from?.id,
       text: messageText.slice(0, 50),
     });
+
+    if (ctx.from?.id && !ctx.from.is_bot) {
+      registerActiveUser(ctx.chat.id, ctx.from.id);
+    }
 
     // Игнорируем команды
     if (messageText.startsWith('/')) return;
